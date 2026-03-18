@@ -4,11 +4,12 @@ export const ROUTES = {
     login: '/login',
     register: '/register',
     forgotPassword: '/forgot-password',
+    callback: '/auth/callback',
   },
   dashboard: '/dashboard',
   cases: {
     list: '/cases',
-    create: '/cases/create',
+    new: '/cases/new',
     detail: (id: string) => `/cases/${id}` as const,
     edit: (id: string) => `/cases/${id}/edit` as const,
   },
