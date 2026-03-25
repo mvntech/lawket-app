@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 
 type Theme = 'light' | 'dark' | 'system'
 
-interface UiStore {
+export interface UiStore {
   sidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
@@ -14,6 +14,10 @@ interface UiStore {
   activeModal: string | null
   openModal: (id: string) => void
   closeModal: () => void
+
+  isPurchaseModalOpen: boolean
+  openPurchaseModal: () => void
+  closePurchaseModal: () => void
 }
 
 export const useUiStore = create<UiStore>()(
@@ -29,6 +33,10 @@ export const useUiStore = create<UiStore>()(
       activeModal: null,
       openModal: (id) => set({ activeModal: id }),
       closeModal: () => set({ activeModal: null }),
+
+      isPurchaseModalOpen: false,
+      openPurchaseModal: () => set({ isPurchaseModalOpen: true }),
+      closePurchaseModal: () => set({ isPurchaseModalOpen: false }),
     }),
     {
       name: 'lawket-ui',
