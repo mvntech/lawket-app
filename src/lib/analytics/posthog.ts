@@ -54,4 +54,32 @@ export const analytics = {
   contactDeleted: () => posthog.capture('contact_deleted'),
   contactLinkedToCase: () => posthog.capture('contact_linked_to_case'),
   contactUnlinkedFromCase: () => posthog.capture('contact_unlinked_from_case'),
+
+  // dashboard
+  dashboardViewed: (seconds: number) => posthog.capture('dashboard_viewed', { seconds }),
+  quickActionUsed: (action: string) => posthog.capture('quick_action_used', { action }),
+
+  // notifications
+  notificationOpened: (type: string) => posthog.capture('notification_opened', { type }),
+  allNotificationsMarkedRead: () => posthog.capture('all_notifications_marked_read'),
+
+  // push notifications
+  pushPermissionRequested: (result?: string) => posthog.capture('push_permission_requested', { result }),
+  pushNotificationEnabled: () => posthog.capture('push_notification_enabled'),
+  pushNotificationDisabled: () => posthog.capture('push_notification_disabled'),
+
+  // settings / profile
+  profileUpdated: () => posthog.capture('profile_updated'),
+  avatarUpdated: () => posthog.capture('avatar_updated'),
+  passwordChanged: () => posthog.capture('password_changed'),
+  accountDeleted: () => posthog.capture('account_deleted'),
+  signOutClicked: () => posthog.capture('sign_out_clicked'),
+  dataExported: () => posthog.capture('data_exported'),
+  themeChanged: (theme: string) => posthog.capture('theme_changed', { theme }),
+  fontSizeChanged: (size: string) => posthog.capture('font_size_changed', { size }),
+
+  // AI
+  aiChatOpened: (caseId?: string) => posthog.capture('ai_chat_opened', { caseId }),
+  aiPromptChipUsed: (prompt: string, caseId?: string) => posthog.capture('ai_prompt_chip_used', { prompt, caseId }),
+  aiHistoryCleared: () => posthog.capture('ai_history_cleared'),
 }
