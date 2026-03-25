@@ -449,7 +449,7 @@ export const deadlinesService = {
     }
   },
 
-  // pure sort — critical → high → medium → low, then by due_date ascending.
+  // pure sort - critical → high → medium → low, then by due_date ascending.
   getPrioritySorted(deadlines: DeadlineModel[]): DeadlineModel[] {
     return [...deadlines].sort((a, b) => {
       const pa = PRIORITY_ORDER[a.priority as DeadlinePriority] ?? 2
