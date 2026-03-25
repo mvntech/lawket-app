@@ -70,6 +70,13 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
   }
 
   try {
+    // Serwist sets `disable: true` when NODE_ENV === 'development', so no SW is ever
+    // registered in dev. navigator.serviceWorker.ready would hang forever in that case.
+    if (process.env.NODE_ENV === 'development') {
+      logger.warn('Push notifications are disabled in development mode (no service worker)')
+      return false
+    }
+
     const registration = await navigator.serviceWorker.ready
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,

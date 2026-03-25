@@ -20,7 +20,7 @@ export async function getSupabaseServer() {
             cookieStore.set(name, value, options),
           )
         } catch {
-          // setAll called from a server component — cookies are read-only there.
+          // setAll called from a server component - cookies are read-only there.
           // ignored intentionally; session refresh is handled by middleware.
         }
       },

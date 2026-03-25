@@ -39,13 +39,13 @@ class SyncEngine {
 
   private _handleOnline = async (): Promise<void> => {
     useSyncStore.getState().setOnline(true)
-    logger.info('Network reconnected — flushing sync queue')
+    logger.info('Network reconnected - flushing sync queue')
     await this._flush()
   }
 
   private _handleOffline = (): void => {
     useSyncStore.getState().setOnline(false)
-    logger.info('Network disconnected — writes will queue locally')
+    logger.info('Network disconnected - writes will queue locally')
   }
 
   private async _flush(): Promise<void> {
