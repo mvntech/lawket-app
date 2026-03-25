@@ -35,7 +35,24 @@ export const queryKeys = {
     casesByContact: (contactId: string) => ['contacts', 'linked-cases', contactId] as const,
   },
   notifications: {
-    all: () => ['notifications'] as const,
+    all: (filters?: object) => ['notifications', filters] as const,
     unread: () => ['notifications', 'unread'] as const,
+    unreadCount: () => ['notifications', 'unread-count'] as const,
+  },
+  dashboard: {
+    stats: () => ['dashboard', 'stats'] as const,
+    summary: (userId: string) => ['dashboard', 'summary', userId] as const,
+    activity: (userId: string) => ['dashboard', 'activity', userId] as const,
+  },
+  profile: {
+    me: () => ['profile', 'me'] as const,
+  },
+  credits: {
+    balance: () => ['credits', 'balance'] as const,
+    transactions: () => ['credits', 'transactions'] as const,
+  },
+  ai: {
+    usage: () => ['ai', 'usage'] as const,
+    cache: (key: string) => ['ai', 'cache', key] as const,
   },
 }

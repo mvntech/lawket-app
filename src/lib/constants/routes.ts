@@ -22,7 +22,11 @@ export const ROUTES = {
   notifications: '/notifications',
   settings: {
     root: '/settings',
+    profile: '/settings/profile',
     security: '/settings/security',
     notifications: '/settings/notifications',
+    appearance: '/settings/appearance',
+    credits: '/settings/credits',
+    account: '/settings/account',
   },
 } as const
