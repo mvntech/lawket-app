@@ -52,7 +52,7 @@ Deno.serve(async () => {
 
             const sent = await sendPush(sub, {
                 title: 'Hearing tomorrow',
-                body: `${caseTitle} — ${timeStr}`,
+                body: `${caseTitle} - ${timeStr}`,
                 data: { type: 'hearing_reminder', case_id: hearing.case_id },
             })
 
@@ -66,7 +66,7 @@ Deno.serve(async () => {
                     user_id: hearing.user_id,
                     case_id: hearing.case_id,
                     title: 'Hearing tomorrow',
-                    body: `${caseTitle} — ${timeStr}`,
+                    body: `${caseTitle} - ${timeStr}`,
                     type: 'hearing_reminder',
                     reference_id: hearing.id,
                 })
@@ -97,7 +97,7 @@ Deno.serve(async () => {
 
             const sent = await sendPush(sub, {
                 title: 'Deadline tomorrow',
-                body: `${deadline.title} — ${caseTitle} — ${timeStr}`,
+                body: `${deadline.title} - ${caseTitle} - ${timeStr}`,
                 data: { type: 'deadline_reminder', case_id: deadline.case_id },
             })
 
@@ -111,7 +111,7 @@ Deno.serve(async () => {
                     user_id: deadline.user_id,
                     case_id: deadline.case_id,
                     title: 'Deadline tomorrow',
-                    body: `${deadline.title} — ${caseTitle} — ${timeStr}`,
+                    body: `${deadline.title} - ${caseTitle} - ${timeStr}`,
                     type: 'deadline_reminder',
                     reference_id: deadline.id,
                 })
