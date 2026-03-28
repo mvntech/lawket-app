@@ -239,7 +239,7 @@ export function useAIChat({ caseId, onCreditsInsufficient }: UseChatOptions) {
                 id: 'assistant-' + Date.now(),
                 conversationId: prev.conversationId ?? '',
                 role: 'assistant',
-                content: partial + '\n\n*— Generation stopped*',
+                content: partial + '\n\n*- Generation stopped*',
                 type: 'text',
                 createdAt: new Date().toISOString(),
               }

@@ -8,7 +8,8 @@ import { queryKeys } from '@/lib/constants/query-keys'
 import type { CreateHearingInput, UpdateHearingInput } from '@/lib/validations/hearing.schema'
 import { useAuth } from '@/hooks/use-auth'
 
-const HEARINGS_STALE_TIME = 1000 * 60 * 2 // 2 minutes
+const HEARINGS_STALE_TIME = 1000 * 60 * 2  // 2 minutes
+const HEARINGS_GC_TIME = 1000 * 60 * 30    // 30 minutes - survives route transitions
 
 // read hooks
 
@@ -18,6 +19,7 @@ export function useHearingsByCase(caseId: string) {
     queryFn: () => hearingsService.getByCase(caseId),
     enabled: !!caseId,
     staleTime: HEARINGS_STALE_TIME,
+    gcTime: HEARINGS_GC_TIME,
   })
 }
 
@@ -29,6 +31,7 @@ export function useUpcomingHearings(days?: number) {
     queryFn: () => hearingsService.getUpcoming(user!.id, days),
     enabled: !!user?.id,
     staleTime: HEARINGS_STALE_TIME,
+    gcTime: HEARINGS_GC_TIME,
   })
 }
 
@@ -40,6 +43,7 @@ export function useHearingsByDateRange(from: Date, to: Date) {
     queryFn: () => hearingsService.getByDateRange(user!.id, from, to),
     enabled: !!user?.id,
     staleTime: HEARINGS_STALE_TIME,
+    gcTime: HEARINGS_GC_TIME,
   })
 }
 

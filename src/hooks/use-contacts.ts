@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { contactsService } from '@/services/contacts.service'
 import type { ContactModel, GetContactsOptions, LinkedCase } from '@/services/contacts.service'
 import { queryKeys } from '@/lib/constants/query-keys'
-import { STALE_TIME_MS } from '@/lib/constants/app'
+import { STALE_TIME_MS, GC_TIME_MS } from '@/lib/constants/app'
 import type { CreateContactInput, UpdateContactInput } from '@/lib/validations/contact.schema'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -21,6 +21,7 @@ export function useContacts(options?: GetContactsOptions) {
     queryFn: () => contactsService.getAll(user!.id, options),
     enabled: !!user?.id,
     staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
   })
 }
 
@@ -30,6 +31,7 @@ export function useContactDetail(id: string) {
     queryFn: () => contactsService.getById(id),
     enabled: !!id,
     staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
   })
 }
 
@@ -39,6 +41,7 @@ export function useContactsByCase(caseId: string) {
     queryFn: () => contactsService.getByCase(caseId),
     enabled: !!caseId,
     staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
   })
 }
 
@@ -186,12 +189,11 @@ export function useUnlinkContactFromCase() {
     mutationFn: ({ contactId, caseId }: { contactId: string; caseId: string }) =>
       contactsService.unlinkFromCase(contactId, caseId),
 
-    onSuccess: (_, { contactId, caseId }) => {
+    onSuccess: () => {
       toast.success('Contact unlinked.')
-      queryClient.invalidateQueries({ queryKey: queryKeys.contacts.byCase(caseId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.contacts.casesByContact(contactId) })
     },
 
+    // onSettled runs after both success and error, so invalidations live here once.
     onSettled: (_, __, { contactId, caseId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.contacts.byCase(caseId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.contacts.casesByContact(contactId) })

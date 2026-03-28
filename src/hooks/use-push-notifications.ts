@@ -38,7 +38,8 @@ export function usePushNotifications(userId: string | undefined) {
     error: null,
   }))
 
-  // async-only effect: check existing subscription status
+  // async-only effect: check existing subscription status on mount.
+  // isSupported comes from static browser API checks - it never changes, so the empty dep array is correct.
   useEffect(() => {
     if (!state.isSupported) return
 
@@ -46,7 +47,7 @@ export function usePushNotifications(userId: string | undefined) {
       .then((reg) => reg.pushManager.getSubscription())
       .then((sub) => setState((prev) => ({ ...prev, isSubscribed: !!sub })))
       .catch((err) => logger.warn({ err }, 'Could not check push subscription status'))
-  }, []) // run once on mount (isSupported is stable after lazy init)
+  }, [])
 
   async function subscribe(): Promise<void> {
     if (!userId) {
@@ -87,7 +88,9 @@ export function usePushNotifications(userId: string | undefined) {
       isSubscribed: success,
       isLoading: false,
       permission: getPermissionStatus(),
-      error: success ? null : 'Failed to enable notifications. Please try again.',
+      error: success
+        ? null
+        : 'Could not register for push notifications. In development, run a production build first (pnpm build && pnpm start).',
     }))
   }
 

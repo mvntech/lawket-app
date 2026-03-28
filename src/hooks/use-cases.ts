@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { casesService } from '@/services/cases.service'
 import type { CaseModel, GetCasesOptions } from '@/services/cases.service'
 import { queryKeys } from '@/lib/constants/query-keys'
-import { STALE_TIME_MS } from '@/lib/constants/app'
+import { STALE_TIME_MS, GC_TIME_MS } from '@/lib/constants/app'
 import type { CreateCaseInput, UpdateCaseInput } from '@/lib/validations/case.schema'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -19,6 +19,7 @@ export function useCases(options?: GetCasesOptions) {
     queryFn: () => casesService.getAll(user!.id, options),
     enabled: !!user?.id,
     staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
   })
 }
 
@@ -27,6 +28,7 @@ export function useCaseDetail(id: string) {
     queryKey: queryKeys.cases.detail(id),
     queryFn: () => casesService.getById(id),
     staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
     enabled: !!id,
   })
 }
@@ -39,6 +41,19 @@ export function useCaseStats() {
     queryFn: () => casesService.getStats(user!.id),
     enabled: !!user?.id,
     staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
+  })
+}
+
+export function useDeletedCases() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: queryKeys.cases.deleted(),
+    queryFn: () => casesService.getDeleted(user!.id),
+    enabled: !!user?.id,
+    staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
   })
 }
 
@@ -162,6 +177,73 @@ export function useUpdateCase() {
     onSettled: (_data, _err, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.cases.all() })
       queryClient.invalidateQueries({ queryKey: queryKeys.cases.detail(id) })
+    },
+  })
+}
+
+export function useRestoreCase() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => casesService.restore(id),
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.cases.deleted() })
+      const previous = queryClient.getQueryData<CaseModel[]>(queryKeys.cases.deleted())
+      queryClient.setQueryData<CaseModel[]>(
+        queryKeys.cases.deleted(),
+        (old) => (old ? old.filter((c) => c.id !== id) : old),
+      )
+      return { previous }
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(queryKeys.cases.deleted(), context.previous)
+      }
+      toast.error('Failed to restore case. Please try again.')
+    },
+
+    onSuccess: () => {
+      toast.success('Case restored successfully.')
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.cases.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.cases.deleted() })
+    },
+  })
+}
+
+export function usePermanentDeleteCase() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => casesService.permanentDelete(id),
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.cases.deleted() })
+      const previous = queryClient.getQueryData<CaseModel[]>(queryKeys.cases.deleted())
+      queryClient.setQueryData<CaseModel[]>(
+        queryKeys.cases.deleted(),
+        (old) => (old ? old.filter((c) => c.id !== id) : old),
+      )
+      return { previous }
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(queryKeys.cases.deleted(), context.previous)
+      }
+      toast.error('Failed to permanently delete case. Please try again.')
+    },
+
+    onSuccess: () => {
+      toast.success('Case permanently deleted.')
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.cases.deleted() })
     },
   })
 }

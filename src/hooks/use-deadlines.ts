@@ -8,7 +8,8 @@ import { queryKeys } from '@/lib/constants/query-keys'
 import type { CreateDeadlineInput, UpdateDeadlineInput } from '@/lib/validations/deadline.schema'
 import { useAuth } from '@/hooks/use-auth'
 
-const DEADLINES_STALE_TIME = 1000 * 60 * 2 // 2 minutes
+const DEADLINES_STALE_TIME = 1000 * 60 * 2  // 2 minutes
+const DEADLINES_GC_TIME = 1000 * 60 * 30    // 30 minutes (survives route transitions)
 
 // read hooks
 
@@ -18,6 +19,7 @@ export function useDeadlinesByCase(caseId: string) {
     queryFn: () => deadlinesService.getByCase(caseId),
     enabled: !!caseId,
     staleTime: DEADLINES_STALE_TIME,
+    gcTime: DEADLINES_GC_TIME,
   })
 }
 
@@ -29,6 +31,7 @@ export function useUpcomingDeadlines(days?: number) {
     queryFn: () => deadlinesService.getUpcoming(user!.id, days),
     enabled: !!user?.id,
     staleTime: DEADLINES_STALE_TIME,
+    gcTime: DEADLINES_GC_TIME,
   })
 }
 
@@ -40,6 +43,7 @@ export function useOverdueDeadlines() {
     queryFn: () => deadlinesService.getOverdue(user!.id),
     enabled: !!user?.id,
     staleTime: DEADLINES_STALE_TIME,
+    gcTime: DEADLINES_GC_TIME,
   })
 }
 

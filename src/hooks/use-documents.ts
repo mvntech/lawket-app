@@ -6,6 +6,7 @@ import { documentsService } from '@/services/documents.service'
 import type { DocumentModel, UploadDocumentInput } from '@/services/documents.service'
 import { queryKeys } from '@/lib/constants/query-keys'
 import { StorageError } from '@/types/common.types'
+import type { DocumentType } from '@/types/database.types'
 
 const DOCUMENTS_STALE_TIME = 1000 * 60 * 5   // 5 minutes
 const SIGNED_URL_STALE_TIME = 1000 * 60 * 50 // 50 minutes
@@ -133,11 +134,56 @@ export function useUploadDocument() {
   })
 }
 
+export function useUpdateDocumentType() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, docType }: { id: string; docType: DocumentType; caseId: string }) =>
+      documentsService.updateDocType(id, docType),
+
+    onMutate: async ({ id, docType, caseId }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.documents.byCase(caseId) })
+      await queryClient.cancelQueries({ queryKey: queryKeys.documents.all() })
+
+      const previousByCase = queryClient.getQueryData<DocumentModel[]>(
+        queryKeys.documents.byCase(caseId),
+      )
+      const previousAll = queryClient.getQueryData<DocumentModel[]>(queryKeys.documents.all())
+
+      const patch = (old: DocumentModel[] | undefined) =>
+        old?.map((d) => (d.id === id ? { ...d, doc_type: docType } : d))
+
+      queryClient.setQueryData(queryKeys.documents.byCase(caseId), patch)
+      queryClient.setQueryData(queryKeys.documents.all(), patch)
+
+      return { previousByCase, previousAll, caseId }
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previousByCase !== undefined) {
+        queryClient.setQueryData(
+          queryKeys.documents.byCase(context.caseId),
+          context.previousByCase,
+        )
+      }
+      if (context?.previousAll !== undefined) {
+        queryClient.setQueryData(queryKeys.documents.all(), context.previousAll)
+      }
+      toast.error('Failed to update document category.')
+    },
+
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.byCase(vars.caseId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.all() })
+    },
+  })
+}
+
 export function useSoftDeleteDocument() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, filePath }: { id: string; filePath: string }) =>
+    mutationFn: ({ id, filePath }: { id: string; filePath: string; caseId?: string }) =>
       documentsService.softDelete(id, filePath),
 
     onMutate: async ({ id }) => {
@@ -168,8 +214,11 @@ export function useSoftDeleteDocument() {
       toast.success('Document removed successfully.')
     },
 
-    onSettled: () => {
+    onSettled: (_data, _err, vars) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.documents.all() })
+      if (vars.caseId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.documents.byCase(vars.caseId) })
+      }
     },
   })
 }
