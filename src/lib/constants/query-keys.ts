@@ -8,6 +8,7 @@ export const queryKeys = {
     list: (filters?: Record<string, unknown>) => ['cases', 'list', filters] as const,
     detail: (id: string) => ['cases', id] as const,
     stats: () => ['cases', 'stats'] as const,
+    deleted: () => ['cases', 'deleted'] as const,
   },
   hearings: {
     all: () => ['hearings'] as const,

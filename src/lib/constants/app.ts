@@ -7,6 +7,10 @@ export const DEFAULT_PAGE_SIZE = 20
 // tanstack query (5 minutes before data is considered stale)
 export const STALE_TIME_MS = 1000 * 60 * 5
 
+// tanstack query (30 minutes before inactive data is evicted from cache)
+// without this, navigating away causes a full refetch on return
+export const GC_TIME_MS = 1000 * 60 * 30
+
 // offline sync
 export const MAX_SYNC_RETRIES = 5
 
