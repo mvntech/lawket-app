@@ -34,7 +34,6 @@ export async function flushQueue(): Promise<void> {
 
       // dynamic table access is required in the sync infrastructure layer.
       // table names are validated at write time via DB_TABLES constants.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from(op.table_name as TableName) as any).upsert(payload)
 
       if (error) throw new Error(error.message)

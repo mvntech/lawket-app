@@ -5,21 +5,27 @@ import type { ChatMessage, MessageRole, MessageType } from '@/lib/ai/types'
 
 type AnySupabase = any
 
+const GENERAL_CASE_ID = 'general'
+
 export async function getOrCreateConversation(caseId: string, userId: string): Promise<string> {
   const supabase = (await getSupabaseServer()) as AnySupabase
+  const isGeneral = caseId === GENERAL_CASE_ID
 
-  const { data: existing } = await supabase
+  const existingQuery = supabase
     .from('ai_conversations')
     .select('id')
-    .eq('case_id', caseId)
     .eq('user_id', userId)
-    .single()
+
+  const { data: existing } = await (isGeneral
+    ? existingQuery.is('case_id', null)
+    : existingQuery.eq('case_id', caseId)
+  ).single()
 
   if (existing) return existing.id as string
 
   const { data: created, error } = await supabase
     .from('ai_conversations')
-    .insert({ case_id: caseId, user_id: userId })
+    .insert({ case_id: isGeneral ? null : caseId, user_id: userId })
     .select('id')
     .single()
 
