@@ -36,7 +36,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AnalyticsProvider>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
-          <Toaster position="bottom-right" />
+          <Toaster
+            position="top-right"
+            closeButton
+            theme="system"
+            toastOptions={{
+              style: {
+                borderRadius: 'var(--radius)',
+                background: 'var(--card)',
+                color: 'var(--foreground)',
+                border: '1px solid var(--border)',
+              },
+            }}
+          />
         </ThemeProvider>
       </AnalyticsProvider>
     </QueryClientProvider>

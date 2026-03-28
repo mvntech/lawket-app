@@ -8,6 +8,9 @@ import { getSupabaseServer } from '@/lib/supabase/server'
 import { ENV } from '@/lib/constants/env'
 import { STORAGE_BUCKET } from '@/lib/constants/app'
 import { logger, captureError } from '@/lib/analytics'
+import type { Tables } from '@/types/database.types'
+
+type DocumentRow = Pick<Tables<'documents'>, 'id' | 'file_path' | 'mime_type'>
 
 const MAX_PDF_PAGES = 20
 const MAX_TEXT_CHARS = 12000
@@ -54,13 +57,15 @@ export async function POST(req: NextRequest) {
   // Always verify document ownership and retrieve file_path from the DB —
   // never trust a caller-supplied file path.
   const supabase = await getSupabaseServer()
-  const { data: doc } = await supabase
+  const { data: docData } = await supabase
     .from('documents')
     .select('id, file_path, mime_type')
     .eq('id', documentId)
     .eq('user_id', userId)
     .eq('is_deleted', false)
     .single()
+
+  const doc = docData as DocumentRow | null
 
   if (!doc) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 })

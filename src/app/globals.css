@@ -69,6 +69,8 @@
   --shadow-2xl: 0px 4px 0px -1px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  --viewer-sheet-height: 92svh;
+  --viewer-dialog-height: 85vh;
 }
 
 .dark {
@@ -136,6 +138,8 @@
   --shadow-lg: 0px 4px 0px -1px hsl(0 0% 0% / 0.1), 0px 4px 6px -2px hsl(0 0% 0% / 0.1);
   --shadow-xl: 0px 4px 0px -1px hsl(0 0% 0% / 0.1), 0px 8px 10px -2px hsl(0 0% 0% / 0.1);
   --shadow-2xl: 0px 4px 0px -1px hsl(0 0% 0% / 0.25);
+  --viewer-sheet-height: 92svh;
+  --viewer-dialog-height: 85vh;
 }
 
 @theme inline {
@@ -214,4 +218,60 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* callendar theme tokens */
+
+.fc-lawket .fc {
+  --fc-border-color: var(--border);
+  --fc-today-bg-color: var(--accent);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--muted);
+  --fc-neutral-text-color: var(--muted-foreground);
+  --fc-event-bg-color: var(--primary);
+  --fc-event-border-color: var(--primary);
+  --fc-event-text-color: var(--primary-foreground);
+  --fc-event-selected-overlay-color: rgba(0, 0, 0, 0.1);
+  --fc-button-bg-color: var(--background);
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: var(--accent);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--primary);
+  --fc-button-active-border-color: var(--primary);
+  --fc-list-event-hover-bg-color: var(--accent);
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.fc-lawket .fc-day-today {
+  background-color: var(--accent) !important;
+}
+
+.fc-lawket .fc-col-header-cell-cushion,
+.fc-lawket .fc-daygrid-day-number,
+.fc-lawket .fc-list-event-title {
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.fc-lawket .fc-event-completed .fc-event-title {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.fc-lawket .fc-event {
+  border-radius: 4px;
+  font-size: 0.75rem;
+  padding: 1px 4px;
+}
+
+.fc-lawket .fc-more-link {
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+}
+
+/* bottom padding (safe area) */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }

@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 md:w-16 md:h-16 bg-card rounded-2xl flex items-center justify-center mb-4 shadow-sm border border-border">
-            <Image src="/icon-192.png" alt="Logo" width={80} height={80} />
+            <Image src="/icons/icon-192.png" alt="Logo" width={80} height={80} />
           </div>
           <div className="text-2xl font-bold tracking-tight mb-1 text-foreground">
             <span className='text-foreground'>Law</span>
