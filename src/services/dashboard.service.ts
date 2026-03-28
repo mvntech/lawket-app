@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { createTableHelper } from '@/lib/db/service-utils'
 import { DB_TABLES } from '@/lib/constants/db-tables'
 import { casesService } from '@/services/cases.service'
 import type { CaseStats } from '@/services/cases.service'
@@ -10,13 +11,8 @@ import { logger, captureError } from '@/lib/analytics'
 
 // supabase typed helpers
 
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-function auditLogsFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.auditLogs)
-}
-function notifLogsFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.notificationLogs)
-}
+const auditLogsFrom = createTableHelper(DB_TABLES.auditLogs)
+const notifLogsFrom = createTableHelper(DB_TABLES.notificationLogs)
 
 // types
 

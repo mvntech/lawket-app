@@ -1,8 +1,8 @@
 import { db } from '@/lib/db/dexie'
-import type { LocalDeadline, PendingSyncOperation } from '@/lib/db/dexie'
+import type { LocalDeadline } from '@/lib/db/dexie'
+import { isOnline, createStaleTracker, queuePendingSync, createTableHelper } from '@/lib/db/service-utils'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { DB_TABLES } from '@/lib/constants/db-tables'
-import { STALE_TIME_MS } from '@/lib/constants/app'
 import { createDeadlineSchema, updateDeadlineSchema } from '@/lib/validations/deadline.schema'
 import type { CreateDeadlineInput, UpdateDeadlineInput } from '@/lib/validations/deadline.schema'
 import { DatabaseError } from '@/types/common.types'
@@ -10,12 +10,7 @@ import type { CaseStatus, DeadlinePriority } from '@/types/common.types'
 import type { Database } from '@/types/database.types'
 import { logger, captureError, analytics } from '@/lib/analytics'
 
-// supabase typed helper
-
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-function deadlinesFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.deadlines)
-}
+const deadlinesFrom = createTableHelper(DB_TABLES.deadlines)
 
 // types
 
@@ -36,14 +31,9 @@ const PRIORITY_ORDER: Record<DeadlinePriority, number> = {
   low: 3,
 }
 
-// staleness tracking
+// staleness tracking - isolated to this service module
 
-const lastFetchedAt = new Map<string, number>()
-
-function isStale(key: string): boolean {
-  const t = lastFetchedAt.get(key)
-  return !t || Date.now() - t > STALE_TIME_MS
-}
+const stale = createStaleTracker()
 
 // converters
 
@@ -65,28 +55,6 @@ function supabaseDeadlineToLocal(d: SupabaseDeadline): LocalDeadline {
     _synced: true,
     _dirty: false,
   }
-}
-
-// pending sync queue
-
-async function queuePendingSync(
-  tableName: string,
-  operation: PendingSyncOperation['operation'],
-  recordId: string,
-  payload: LocalDeadline,
-): Promise<void> {
-  await db.pendingSync.add({
-    table_name: tableName,
-    operation,
-    record_id: recordId,
-    payload: JSON.stringify(payload),
-    created_at: new Date().toISOString(),
-    retry_count: 0,
-  })
-}
-
-function isOnline(): boolean {
-  return typeof navigator !== 'undefined' ? navigator.onLine : true
 }
 
 // background refresh
@@ -119,7 +87,7 @@ async function refreshDeadlinesFromSupabase(
       .filter((d) => !dirtyIds.has(d.id))
       .map(supabaseDeadlineToLocal)
     await db.deadlines.bulkPut(toUpsert)
-    lastFetchedAt.set(cacheKey, Date.now())
+    stale.markFresh(cacheKey)
   }
 }
 
@@ -136,7 +104,7 @@ export const deadlinesService = {
 
       local.sort((a, b) => a.due_date.localeCompare(b.due_date))
 
-      if (isOnline() && isStale(`case:${caseId}`)) {
+      if (isOnline() && stale.isStale(`case:${caseId}`)) {
         const userId = local[0]?.user_id
         if (userId) {
           refreshDeadlinesFromSupabase(userId, { case_id: caseId }, `case:${caseId}`).catch(
@@ -202,7 +170,7 @@ export const deadlinesService = {
       })
 
       const cacheKey = `upcoming:${userId}:${days}`
-      if (isOnline() && isStale(cacheKey)) {
+      if (isOnline() && stale.isStale(cacheKey)) {
         refreshDeadlinesFromSupabase(userId, { is_completed: false }, cacheKey).catch((err) => {
           logger.error({ err, userId }, 'deadlinesService.getUpcoming refresh failed')
         })

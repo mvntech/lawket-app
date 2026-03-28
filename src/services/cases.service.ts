@@ -1,8 +1,9 @@
 import { db } from '@/lib/db/dexie'
-import type { LocalCase, PendingSyncOperation } from '@/lib/db/dexie'
+import type { LocalCase } from '@/lib/db/dexie'
+import { isOnline, createStaleTracker, queuePendingSync, createTableHelper } from '@/lib/db/service-utils'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { DB_TABLES } from '@/lib/constants/db-tables'
-import { DEFAULT_PAGE_SIZE, STALE_TIME_MS } from '@/lib/constants/app'
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/app'
 import { createCaseSchema, updateCaseSchema } from '@/lib/validations/case.schema'
 import type { CreateCaseInput, UpdateCaseInput } from '@/lib/validations/case.schema'
 import type { CaseStatus, CaseType } from '@/types/common.types'
@@ -10,12 +11,7 @@ import { DatabaseError } from '@/types/common.types'
 import type { Database } from '@/types/database.types'
 import { logger, captureError } from '@/lib/analytics'
 
-// supabase typed helper
-
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-function casesFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.cases)
-}
+const casesFrom = createTableHelper(DB_TABLES.cases)
 
 // types
 
@@ -33,19 +29,15 @@ export interface GetCasesOptions {
   page?: number
   pageSize?: number
   status?: CaseStatus
+  caseType?: CaseType
   search?: string
 }
 
 type SupabaseCase = Database['public']['Tables']['cases']['Row']
 
-// staleness tracking
+// staleness tracking - isolated to this service module
 
-const lastFetchedAt = new Map<string, number>()
-
-function isStale(key: string): boolean {
-  const t = lastFetchedAt.get(key)
-  return !t || Date.now() - t > STALE_TIME_MS
-}
+const stale = createStaleTracker()
 
 // converters
 
@@ -76,22 +68,6 @@ function supabaseCaseToLocal(c: SupabaseCase): LocalCase {
 
 // pending sync queue
 
-async function queuePendingSync(
-  tableName: string,
-  operation: PendingSyncOperation['operation'],
-  recordId: string,
-  payload: LocalCase,
-): Promise<void> {
-  await db.pendingSync.add({
-    table_name: tableName,
-    operation,
-    record_id: recordId,
-    payload: JSON.stringify(payload),
-    created_at: new Date().toISOString(),
-    retry_count: 0,
-  })
-}
-
 // background refresh
 
 async function refreshFromSupabase(userId: string): Promise<void> {
@@ -113,19 +89,15 @@ async function refreshFromSupabase(userId: string): Promise<void> {
     )
     const toUpsert = (data as SupabaseCase[]).filter((c) => !dirtyIds.has(c.id)).map(supabaseCaseToLocal)
     await db.cases.bulkPut(toUpsert)
-    lastFetchedAt.set(userId, Date.now())
+    stale.markFresh(userId)
   }
-}
-
-function isOnline(): boolean {
-  return typeof navigator !== 'undefined' ? navigator.onLine : true
 }
 
 // service
 
 export const casesService = {
   async getAll(userId: string, options: GetCasesOptions = {}): Promise<CaseModel[]> {
-    const { page = 0, pageSize = DEFAULT_PAGE_SIZE, status, search } = options
+    const { page = 0, pageSize = DEFAULT_PAGE_SIZE, status, caseType, search } = options
 
     try {
       let cases = await db.cases
@@ -136,6 +108,10 @@ export const casesService = {
 
       if (status) {
         cases = cases.filter((c) => c.status === status)
+      }
+
+      if (caseType) {
+        cases = cases.filter((c) => c.case_type === caseType)
       }
 
       if (search && search.trim()) {
@@ -156,7 +132,7 @@ export const casesService = {
       const paginated = cases.slice(offset, offset + pageSize)
 
       // background refresh if online and stale
-      if (isOnline() && isStale(userId)) {
+      if (isOnline() && stale.isStale(userId)) {
         refreshFromSupabase(userId).catch((err) => {
           logger.error({ err, userId }, 'casesService background refresh failed')
         })
@@ -400,6 +376,94 @@ export const casesService = {
       logger.error({ err, userId }, 'casesService.getStats failed')
       captureError(err)
       throw new DatabaseError('Failed to get case stats', err)
+    }
+  },
+
+  async getDeleted(userId: string): Promise<CaseModel[]> {
+    try {
+      const local = await db.cases
+        .where('user_id')
+        .equals(userId)
+        .filter((c) => c.is_deleted)
+        .toArray()
+
+      local.sort((a, b) => new Date(b.deleted_at ?? b.updated_at).getTime() - new Date(a.deleted_at ?? a.updated_at).getTime())
+
+      if (isOnline()) {
+        const supabase = getSupabaseClient()
+        casesFrom(supabase)
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_deleted', true)
+          .order('deleted_at', { ascending: false })
+          .then(({ data, error }: { data: SupabaseCase[] | null; error: unknown }) => {
+            if (error || !data) return
+            db.cases.bulkPut(data.map(supabaseCaseToLocal)).catch(() => undefined)
+          })
+          .catch(() => undefined)
+      }
+
+      return local
+    } catch (err) {
+      logger.error({ err, userId }, 'casesService.getDeleted failed')
+      captureError(err)
+      throw new DatabaseError('Failed to fetch deleted cases', err)
+    }
+  },
+
+  async restore(id: string): Promise<CaseModel> {
+    try {
+      const existing = await db.cases.get(id)
+      if (!existing) throw new DatabaseError('Case not found')
+
+      const now = new Date().toISOString()
+      await db.cases.update(id, {
+        is_deleted: false,
+        deleted_at: null,
+        _dirty: true,
+        _synced: false,
+      })
+
+      if (isOnline()) {
+        const supabase = getSupabaseClient()
+        const { error } = await casesFrom(supabase)
+          .update({ is_deleted: false, deleted_at: null, deleted_by: null })
+          .eq('id', id)
+
+        if (error) {
+          logger.warn({ err: error, id }, 'Supabase restore failed, queuing for sync')
+          await queuePendingSync(DB_TABLES.cases, 'update', id, { ...existing, is_deleted: false, deleted_at: null })
+        } else {
+          await db.cases.update(id, { _synced: true, _dirty: false })
+        }
+      } else {
+        await queuePendingSync(DB_TABLES.cases, 'update', id, { ...existing, is_deleted: false, deleted_at: null })
+      }
+
+      const restored = await db.cases.get(id)
+      if (!restored) throw new DatabaseError('Case not found after restore')
+      logger.info({ id }, 'Case restored')
+      return { ...existing, is_deleted: false, deleted_at: null, updated_at: now }
+    } catch (err) {
+      logger.error({ err, id }, 'casesService.restore failed')
+      captureError(err)
+      throw err instanceof DatabaseError ? err : new DatabaseError('Failed to restore case', err)
+    }
+  },
+
+  async permanentDelete(id: string): Promise<void> {
+    try {
+      if (isOnline()) {
+        const supabase = getSupabaseClient()
+        const { error } = await casesFrom(supabase).delete().eq('id', id)
+        if (error) throw new DatabaseError('Failed to permanently delete case', error)
+      }
+      await db.cases.delete(id)
+      logger.info({ id }, 'Case permanently deleted')
+    } catch (err) {
+      logger.error({ err, id }, 'casesService.permanentDelete failed')
+      captureError(err)
+      throw err instanceof DatabaseError ? err : new DatabaseError('Failed to permanently delete case', err)
     }
   },
 

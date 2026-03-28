@@ -1,6 +1,7 @@
 import { db } from '@/lib/db/dexie'
 import type { LocalDocument } from '@/lib/db/dexie'
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { createTableHelper } from '@/lib/db/service-utils'
 import { DB_TABLES } from '@/lib/constants/db-tables'
 import { STORAGE_BUCKET, SIGNED_URL_EXPIRY_SECONDS } from '@/lib/constants/app'
 import { MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } from '@/lib/constants/app'
@@ -19,10 +20,7 @@ export interface UploadDocumentInput {
   notes?: string
 }
 
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-function docsFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.documents)
-}
+const docsFrom = createTableHelper(DB_TABLES.documents)
 
 // signed url cache
 
@@ -94,7 +92,14 @@ async function refreshByCaseFromSupabase(caseId: string): Promise<void> {
 
   if (error) throw new DatabaseError('Failed to refresh documents', error)
   if (data) {
-    await db.documents.bulkPut((data as Parameters<typeof toLocalDocument>[0][]).map(toLocalDocument))
+    // do not overwrite documents with unsynced local changes (e.g. a pending soft-delete)
+    const unsyncedIds = new Set(
+      (await db.documents.filter((d) => !d._synced).toArray()).map((d) => d.id),
+    )
+    const toUpsert = (data as Parameters<typeof toLocalDocument>[0][])
+      .filter((d) => !unsyncedIds.has(d.id))
+      .map(toLocalDocument)
+    await db.documents.bulkPut(toUpsert)
     lastFetchedAt.set(caseId, Date.now())
   }
 }
@@ -277,20 +282,31 @@ export const documentsService = {
   async softDelete(id: string, filePath: string): Promise<void> {
     try {
       const now = new Date().toISOString()
+      const online = isOnline()
 
-      if (isOnline()) {
-        const supabase = getSupabaseClient()
-        const { error } = await docsFrom(supabase)
-          .update({ is_deleted: true, deleted_at: now })
-          .eq('id', id)
+      // write to Dexie immediately (authoritative local state)
+      await db.documents.update(id, { is_deleted: true, deleted_at: now, _synced: false })
 
-        if (error) throw new DatabaseError('Failed to delete document', error)
-      }
-
-      await db.documents.update(id, { is_deleted: true, deleted_at: now, _synced: isOnline() })
-
-      // invalidate signed URL cache
+      // invalidate signed URL cache regardless of Supabase outcome
       signedUrlCache.delete(filePath)
+
+      // attempt Supabase sync; failure is non-fatal (will sync on next load)
+      if (online) {
+        try {
+          const supabase = getSupabaseClient()
+          const { error } = await docsFrom(supabase)
+            .update({ is_deleted: true, deleted_at: now })
+            .eq('id', id)
+
+          if (error) {
+            logger.warn({ err: error, id }, 'Supabase document soft-delete failed - will sync later')
+          } else {
+            await db.documents.update(id, { _synced: true })
+          }
+        } catch (supabaseErr) {
+          logger.warn({ err: supabaseErr, id }, 'Supabase document soft-delete threw - will sync later')
+        }
+      }
 
       analytics.documentDeleted()
       logger.info({ id }, 'Document soft-deleted')
@@ -298,6 +314,37 @@ export const documentsService = {
       logger.error({ err, id }, 'documentsService.softDelete failed')
       captureError(err)
       throw err instanceof DatabaseError ? err : new DatabaseError('Failed to delete document', err)
+    }
+  },
+
+  async updateDocType(id: string, docType: DocumentType): Promise<void> {
+    try {
+      await db.documents.update(id, { doc_type: docType, _synced: false })
+
+      if (isOnline()) {
+        try {
+          const supabase = getSupabaseClient()
+          const { error } = await docsFrom(supabase)
+            .update({ doc_type: docType })
+            .eq('id', id)
+
+          if (error) {
+            logger.warn({ err: error, id }, 'Supabase doc_type update failed – will sync later')
+          } else {
+            await db.documents.update(id, { _synced: true })
+          }
+        } catch (supabaseErr) {
+          logger.warn({ err: supabaseErr, id }, 'Supabase doc_type update threw – will sync later')
+        }
+      }
+
+      logger.info({ id, docType }, 'Document type updated')
+    } catch (err) {
+      logger.error({ err, id }, 'documentsService.updateDocType failed')
+      captureError(err)
+      throw err instanceof DatabaseError
+        ? err
+        : new DatabaseError('Failed to update document type', err)
     }
   },
 
@@ -318,9 +365,14 @@ export const documentsService = {
           .eq('user_id', userId)
           .eq('is_deleted', false)
           .order('created_at', { ascending: false })
-          .then(({ data, error }: { data: Parameters<typeof toLocalDocument>[0][] | null; error: unknown }) => {
+          .then(async ({ data, error }: { data: Parameters<typeof toLocalDocument>[0][] | null; error: unknown }) => {
             if (error || !data) return
-            db.documents.bulkPut(data.map(toLocalDocument)).catch(() => undefined)
+            // do not overwrite documents with unsynced local changes (e.g. a pending soft-delete)
+            const unsyncedIds = new Set(
+              (await db.documents.filter((d) => !d._synced).toArray()).map((d) => d.id),
+            )
+            const toUpsert = data.filter((d) => !unsyncedIds.has(d.id)).map(toLocalDocument)
+            await db.documents.bulkPut(toUpsert)
             lastFetchedAt.set(`user:${userId}`, Date.now())
           })
           .catch((err: unknown) => {

@@ -1,8 +1,8 @@
 import { db } from '@/lib/db/dexie'
-import type { LocalHearing, PendingSyncOperation } from '@/lib/db/dexie'
+import type { LocalHearing } from '@/lib/db/dexie'
+import { isOnline, createStaleTracker, queuePendingSync, createTableHelper } from '@/lib/db/service-utils'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { DB_TABLES } from '@/lib/constants/db-tables'
-import { STALE_TIME_MS } from '@/lib/constants/app'
 import { createHearingSchema, updateHearingSchema } from '@/lib/validations/hearing.schema'
 import type { CreateHearingInput, UpdateHearingInput } from '@/lib/validations/hearing.schema'
 import { DatabaseError } from '@/types/common.types'
@@ -10,12 +10,7 @@ import type { CaseStatus } from '@/types/common.types'
 import type { Database } from '@/types/database.types'
 import { logger, captureError } from '@/lib/analytics'
 
-// supabase typed helper
-
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-function hearingsFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.hearings)
-}
+const hearingsFrom = createTableHelper(DB_TABLES.hearings)
 
 // types
 
@@ -27,14 +22,9 @@ export type HearingModel = LocalHearing & {
 
 type SupabaseHearing = Database['public']['Tables']['hearings']['Row']
 
-// staleness tracking
+// staleness tracking - isolated to this service module
 
-const lastFetchedAt = new Map<string, number>()
-
-function isStale(key: string): boolean {
-  const t = lastFetchedAt.get(key)
-  return !t || Date.now() - t > STALE_TIME_MS
-}
+const stale = createStaleTracker()
 
 // converters
 
@@ -56,28 +46,6 @@ function supabaseHearingToLocal(h: SupabaseHearing): LocalHearing {
     _synced: true,
     _dirty: false,
   }
-}
-
-// pending sync queue
-
-async function queuePendingSync(
-  tableName: string,
-  operation: PendingSyncOperation['operation'],
-  recordId: string,
-  payload: LocalHearing,
-): Promise<void> {
-  await db.pendingSync.add({
-    table_name: tableName,
-    operation,
-    record_id: recordId,
-    payload: JSON.stringify(payload),
-    created_at: new Date().toISOString(),
-    retry_count: 0,
-  })
-}
-
-function isOnline(): boolean {
-  return typeof navigator !== 'undefined' ? navigator.onLine : true
 }
 
 // background refresh helpers
@@ -112,7 +80,7 @@ async function refreshHearingsFromSupabase(
       .filter((h) => !dirtyIds.has(h.id))
       .map(supabaseHearingToLocal)
     await db.hearings.bulkPut(toUpsert)
-    lastFetchedAt.set(cacheKey, Date.now())
+    stale.markFresh(cacheKey)
   }
 }
 
@@ -144,7 +112,7 @@ async function refreshRangeFromSupabase(
       .filter((h) => !dirtyIds.has(h.id))
       .map(supabaseHearingToLocal)
     await db.hearings.bulkPut(toUpsert)
-    lastFetchedAt.set(cacheKey, Date.now())
+    stale.markFresh(cacheKey)
   }
 }
 
@@ -161,7 +129,7 @@ export const hearingsService = {
 
       local.sort((a, b) => a.hearing_date.localeCompare(b.hearing_date))
 
-      if (isOnline() && isStale(`case:${caseId}`)) {
+      if (isOnline() && stale.isStale(`case:${caseId}`)) {
         // get user_id from first hearing or skip background refresh
         const userId = local[0]?.user_id
         if (userId) {
@@ -223,7 +191,7 @@ export const hearingsService = {
       })
 
       const cacheKey = `upcoming:${userId}:${days}`
-      if (isOnline() && isStale(cacheKey)) {
+      if (isOnline() && stale.isStale(cacheKey)) {
         refreshRangeFromSupabase(userId, todayStr, endStr, cacheKey).catch((err) => {
           logger.error({ err, userId }, 'hearingsService.getUpcoming refresh failed')
         })
@@ -280,7 +248,7 @@ export const hearingsService = {
       })
 
       const cacheKey = `range:${userId}:${fromStr}:${toStr}`
-      if (isOnline() && isStale(cacheKey)) {
+      if (isOnline() && stale.isStale(cacheKey)) {
         refreshRangeFromSupabase(userId, fromStr, toStr, cacheKey).catch((err) => {
           logger.error({ err, userId }, 'hearingsService.getByDateRange refresh failed')
         })

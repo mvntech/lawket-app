@@ -1,8 +1,9 @@
 import { db } from '@/lib/db/dexie'
-import type { LocalContact, PendingSyncOperation } from '@/lib/db/dexie'
+import type { LocalContact } from '@/lib/db/dexie'
+import { isOnline, createStaleTracker, queuePendingSync, createTableHelper } from '@/lib/db/service-utils'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { DB_TABLES } from '@/lib/constants/db-tables'
-import { DEFAULT_PAGE_SIZE, STALE_TIME_MS } from '@/lib/constants/app'
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/app'
 import { createContactSchema, updateContactSchema } from '@/lib/validations/contact.schema'
 import type { CreateContactInput, UpdateContactInput } from '@/lib/validations/contact.schema'
 import type { ContactModel, ContactRole } from '@/types/common.types'
@@ -14,15 +15,8 @@ type SupabaseCaseRow = Database['public']['Tables']['cases']['Row']
 export type LinkedCase = LocalCase
 import { logger, captureError, analytics } from '@/lib/analytics'
 
-// supabase typed helpers
-
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-function contactsFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.contacts)
-}
-function caseContactsFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.caseContacts)
-}
+const contactsFrom = createTableHelper(DB_TABLES.contacts)
+const caseContactsFrom = createTableHelper(DB_TABLES.caseContacts)
 
 // types
 
@@ -37,14 +31,9 @@ export interface GetContactsOptions {
   role?: ContactRole
 }
 
-// staleness tracking
+// staleness tracking - isolated to this service module
 
-const lastFetchedAt = new Map<string, number>()
-
-function isStale(key: string): boolean {
-  const t = lastFetchedAt.get(key)
-  return !t || Date.now() - t > STALE_TIME_MS
-}
+const stale = createStaleTracker()
 
 // converters
 
@@ -70,28 +59,6 @@ function localToModel(c: LocalContact): ContactModel {
   return c as ContactModel
 }
 
-// helpers
-
-function isOnline(): boolean {
-  return typeof navigator !== 'undefined' ? navigator.onLine : true
-}
-
-async function queuePendingSync(
-  tableName: string,
-  operation: PendingSyncOperation['operation'],
-  recordId: string,
-  payload: LocalContact,
-): Promise<void> {
-  await db.pendingSync.add({
-    table_name: tableName,
-    operation,
-    record_id: recordId,
-    payload: JSON.stringify(payload),
-    created_at: new Date().toISOString(),
-    retry_count: 0,
-  })
-}
-
 async function refreshFromSupabase(userId: string): Promise<void> {
   const supabase = getSupabaseClient()
   const { data, error } = await contactsFrom(supabase)
@@ -114,7 +81,7 @@ async function refreshFromSupabase(userId: string): Promise<void> {
       .filter((c) => !dirtyIds.has(c.id))
       .map(supabaseContactToLocal)
     await db.contacts.bulkPut(toUpsert)
-    lastFetchedAt.set(userId, Date.now())
+    stale.markFresh(userId)
   }
 }
 
@@ -150,7 +117,7 @@ export const contactsService = {
       const offset = page * pageSize
       const paginated = contacts.slice(offset, offset + pageSize)
 
-      if (isOnline() && isStale(userId)) {
+      if (isOnline() && stale.isStale(userId)) {
         refreshFromSupabase(userId).catch((err) => {
           logger.error({ err, userId }, 'contactsService background refresh failed')
         })

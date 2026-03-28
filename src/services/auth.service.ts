@@ -125,6 +125,19 @@ export const authService = {
     }
   },
 
+  async signOutOtherSessions(): Promise<void> {
+    try {
+      const supabase = getSupabaseClient()
+      const { error } = await supabase.auth.signOut({ scope: 'others' })
+      if (error) throw new AuthError(error.message, error)
+      logger.info('Signed out all other sessions')
+    } catch (err) {
+      if (err instanceof AuthError) throw err
+      logger.error({ err }, 'authService.signOutOtherSessions failed')
+      throw new AuthError('Failed to sign out other sessions', err)
+    }
+  },
+
   async getSession(): Promise<Session | null> {
     try {
       const supabase = getSupabaseClient()

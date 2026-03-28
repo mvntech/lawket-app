@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { createTableHelper } from '@/lib/db/service-utils'
 import { DB_TABLES } from '@/lib/constants/db-tables'
 import { StorageError, DatabaseError, AuthError } from '@/types/common.types'
 import { logger, captureError } from '@/lib/analytics'
@@ -11,11 +12,7 @@ export type { Profile }
 
 // supabase typed helpers
 
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function profilesFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.profiles)
-}
+const profilesFrom = createTableHelper(DB_TABLES.profiles)
 
 // service
 

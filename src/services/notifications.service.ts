@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { createTableHelper } from '@/lib/db/service-utils'
 import { DB_TABLES } from '@/lib/constants/db-tables'
 import { DatabaseError } from '@/types/common.types'
 import type { NotificationLog } from '@/types/database.types'
@@ -16,12 +17,7 @@ const PAGE_SIZE = 20
 
 // supabase typed helper
 
-type SupabaseClient = ReturnType<typeof getSupabaseClient>
-// Supabase .from() generic resolves to 'never' without this helper — same pattern as cases.service.ts
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function notifLogsFrom(supabase: SupabaseClient): any {
-  return supabase.from(DB_TABLES.notificationLogs)
-}
+const notifLogsFrom = createTableHelper(DB_TABLES.notificationLogs)
 
 // service
 
