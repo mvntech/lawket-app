@@ -138,7 +138,11 @@ export function DocumentsClient({ initialDocuments, userId }: DocumentsClientPro
 
   const handleDelete = async () => {
     if (!deletingDoc) return
-    await softDelete.mutateAsync({ id: deletingDoc.id, filePath: deletingDoc.file_path })
+    try {
+      await softDelete.mutateAsync({ id: deletingDoc.id, filePath: deletingDoc.file_path })
+    } catch {
+      return
+    }
     setDeletingDoc(null)
   }
 

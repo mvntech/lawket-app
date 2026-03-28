@@ -33,7 +33,6 @@ export default async function ContactsPage() {
 
   if (!user) redirect('/login')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (supabase.from('contacts') as any)
     .select('*')
     .eq('user_id', user.id)

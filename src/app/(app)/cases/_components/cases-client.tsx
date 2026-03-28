@@ -66,6 +66,7 @@ export function CasesClient({ initialCases, userId: _userId }: CasesClientProps)
           <Button
             onClick={() => router.push(ROUTES.cases.new)}
             size="sm"
+            variant="outline"
             className="hidden md:flex"
           >
             Add case
