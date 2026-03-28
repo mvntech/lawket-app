@@ -11,6 +11,24 @@ import type {
 
 export type { CaseStatus, CaseType, DeadlinePriority, ContactRole, DocumentType, NotificationType }
 
+// contact model
+
+export interface ContactModel {
+  id: string
+  user_id: string
+  full_name: string
+  role: ContactRole
+  email: string | null
+  phone: string | null
+  organization: string | null
+  notes: string | null
+  is_deleted: boolean
+  created_at: string
+  updated_at: string
+  _synced: boolean
+  _dirty: boolean
+}
+
 // pagination
 
 export interface PaginatedResult<T> {
