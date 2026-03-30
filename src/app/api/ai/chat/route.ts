@@ -1,42 +1,31 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/ai/auth-helper'
 import { canUseAIFeature, deductCredits } from '@/lib/ai/credits'
 import { getOrCreateConversation, saveMessage, getMessages } from '@/lib/ai/message-store'
 import { buildCaseContext, buildSystemPrompt, buildGeneralSystemPrompt, buildPromptMessage } from '@/lib/ai/chat-context'
 import { createSSEStream } from '@/lib/ai/stream-helpers'
 import { genAI, AI_MODEL } from '@/lib/ai/gemini'
-import type { MessageType, PromptType } from '@/lib/ai/types'
 import { PROMPT_CREDIT_COSTS } from '@/lib/ai/types'
-import type { Content, Part } from '@google/generative-ai'
+import { checkRateLimit, trackUsage } from '@/lib/ai/rate-limiter'
+import { chatSchema } from '@/lib/validations/ai.schema'
+import type { Part } from '@google/generative-ai'
+import type { Content } from '@google/generative-ai'
 import { getSupabaseServer } from '@/lib/supabase/server'
-
-const ALLOWED_IMAGE_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-] as const)
-
-type AllowedImageMimeType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'image/heic' | 'image/heif'
 
 export async function POST(request: NextRequest) {
   const { userId, errorResponse } = await getAuthenticatedUser()
   if (errorResponse) return errorResponse
 
-  const body = (await request.json()) as {
-    caseId: string
-    message: string
-    messageType?: MessageType
-    promptType?: PromptType
-    documentContext?: string
-    documentName?: string
-    imageBase64?: string
-    imageMediaType?: string
+  const raw = await request.json()
+  const parsed = chatSchema.safeParse(raw)
+  if (!parsed.success) {
+    return new Response(JSON.stringify({ error: 'Invalid request', details: parsed.error.issues }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const {
@@ -48,21 +37,17 @@ export async function POST(request: NextRequest) {
     documentName,
     imageBase64,
     imageMediaType,
-  } = body
+  } = parsed.data
 
-  if (!caseId || !message) {
-    return new Response(JSON.stringify({ error: 'caseId and message are required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
-  // Validate imageMediaType against the explicit allow-list before any further processing.
-  if (imageBase64 && imageMediaType && !ALLOWED_IMAGE_MIME_TYPES.has(imageMediaType as AllowedImageMimeType)) {
-    return new Response(JSON.stringify({ error: 'Unsupported image type' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  const rateCheck = await checkRateLimit(userId!)
+  if (!rateCheck.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: "You've reached today's AI limit. Resets tomorrow.",
+        resetAt: rateCheck.resetAt,
+      }),
+      { status: 429, headers: { 'Content-Type': 'application/json' } },
+    )
   }
 
   // For case-scoped conversations, verify ownership before touching credits or conversations.
@@ -113,12 +98,11 @@ export async function POST(request: NextRequest) {
       '\n\nThe user has shared a document. The extracted text is included in their message. Analyze it carefully.'
   }
 
-  // Build the user content for Gemini
-  // History messages are plain text; only the latest message may include image/document
+  type AllowedImageMimeType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'image/heic' | 'image/heif'
+
   let userParts: Part[]
 
   if (imageBase64 && imageMediaType) {
-    // Vision message - send image + text to Gemini
     userParts = [
       {
         inlineData: {
@@ -129,11 +113,9 @@ export async function POST(request: NextRequest) {
       { text: message || 'Please analyze this image.' },
     ]
   } else if (promptType && context) {
-    // Structured prompt (case-scoped only — requires case context)
     const promptContent = buildPromptMessage(promptType, context, documentContext)
     userParts = [{ text: promptContent }]
   } else if (documentContext) {
-    // PDF text context injected into message
     userParts = [{ text: message + '\n\n---\nDOCUMENT CONTENT:\n' + documentContext + '\n---' }]
   } else {
     userParts = [{ text: message }]
@@ -146,7 +128,6 @@ export async function POST(request: NextRequest) {
 
   const allMessages = await getMessages(convId)
 
-  // Build history from all messages except the latest user message
   const history: Content[] = []
   for (const msg of allMessages.slice(0, -1)) {
     history.push({
@@ -176,7 +157,10 @@ export async function POST(request: NextRequest) {
       }
 
       await saveMessage(convId, 'assistant', fullResponse, 'text', { creditsUsed: cost }, cost)
-      await deductCredits(userId!, 'chat', `AI chat: ${promptType ?? 'message'}`)
+      await Promise.all([
+        deductCredits(userId!, 'chat', `AI chat: ${promptType ?? 'message'}`),
+        trackUsage(userId!, 'chat', fullResponse.length),
+      ])
 
       yield '\n[META]' +
         JSON.stringify({

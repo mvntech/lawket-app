@@ -64,7 +64,6 @@ export function ProfileSettings() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {/* LEFT: Avatar + Account info */}
       <div className="rounded-lg border bg-card p-5 space-y-4">
         <h2 className="text-sm font-semibold">Profile</h2>
         <div className="flex items-center gap-4">
@@ -123,7 +122,6 @@ export function ProfileSettings() {
         </div>
       </div>
 
-      {/* RIGHT: Form fields */}
       <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border bg-card p-5 space-y-4">
         <h2 className="text-sm font-semibold">Edit profile</h2>
         <div className="space-y-1.5">

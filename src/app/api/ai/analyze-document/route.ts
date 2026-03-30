@@ -4,6 +4,8 @@ import { SYSTEM_PROMPTS } from '@/lib/ai/prompts'
 import { canUseFeature, deductCredits } from '@/lib/credits/credits'
 import { createSSEStream } from '@/lib/ai/stream-helpers'
 import { getAuthenticatedUser } from '@/lib/ai/auth-helper'
+import { checkRateLimit, trackUsage } from '@/lib/ai/rate-limiter'
+import { analyzeDocumentSchema } from '@/lib/validations/ai.schema'
 import { logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
@@ -13,6 +15,26 @@ export async function POST(req: NextRequest) {
   const { userId, errorResponse } = await getAuthenticatedUser()
   if (!userId) return errorResponse!
   const uid: string = userId
+
+  const raw = await req.json()
+  const parsed = analyzeDocumentSchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.issues },
+      { status: 400 },
+    )
+  }
+
+  const rateCheck = await checkRateLimit(uid)
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "You've reached today's AI limit. Resets tomorrow.",
+        resetAt: rateCheck.resetAt,
+      },
+      { status: 429 },
+    )
+  }
 
   const creditCheck = await canUseFeature(uid, 'analyze-document')
   if (!creditCheck.allowed) {
@@ -27,12 +49,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const body = await req.json()
-  const { documentName, documentText, caseTitle, caseType } = body
-
-  if (!documentText || documentText.length < 50) {
-    return NextResponse.json({ error: 'Document text too short to analyze' }, { status: 400 })
-  }
+  const { documentName, documentText, caseTitle, caseType } = parsed.data
 
   const truncatedText = documentText.slice(0, 10000)
 
@@ -62,7 +79,10 @@ ${truncatedText}
         yield chunk.text()
       }
 
-      await deductCredits(uid, 'analyze-document', 'AI: analyze document')
+      await Promise.all([
+        deductCredits(uid, 'analyze-document', 'AI: analyze document'),
+        trackUsage(uid, 'analyze-document', TOKEN_LIMITS.analyzeDocument),
+      ])
     } catch (err) {
       logger.error({ err, userId: uid }, 'AI document analysis failed')
       yield '\n\nLawket AI assistant is unavailable. Please try again.'

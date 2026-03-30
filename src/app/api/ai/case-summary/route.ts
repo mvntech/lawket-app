@@ -4,6 +4,8 @@ import { SYSTEM_PROMPTS } from '@/lib/ai/prompts'
 import { canUseFeature, deductCredits } from '@/lib/credits/credits'
 import { createSSEStream } from '@/lib/ai/stream-helpers'
 import { getAuthenticatedUser } from '@/lib/ai/auth-helper'
+import { checkRateLimit, trackUsage } from '@/lib/ai/rate-limiter'
+import { caseSummarySchema } from '@/lib/validations/ai.schema'
 import { logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
@@ -13,6 +15,26 @@ export async function POST(req: NextRequest) {
   const { userId, errorResponse } = await getAuthenticatedUser()
   if (!userId) return errorResponse!
   const uid: string = userId
+
+  const raw = await req.json()
+  const parsed = caseSummarySchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.issues },
+      { status: 400 },
+    )
+  }
+
+  const rateCheck = await checkRateLimit(uid)
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "You've reached today's AI limit. Resets tomorrow.",
+        resetAt: rateCheck.resetAt,
+      },
+      { status: 429 },
+    )
+  }
 
   const creditCheck = await canUseFeature(uid, 'case-summary')
   if (!creditCheck.allowed) {
@@ -27,7 +49,6 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const body = await req.json()
   const {
     caseNumber,
     title,
@@ -39,19 +60,15 @@ export async function POST(req: NextRequest) {
     opposingParty,
     description,
     notes,
-  } = body
-
-  if (!title || !clientName) {
-    return NextResponse.json({ error: 'title and clientName required' }, { status: 400 })
-  }
+  } = parsed.data
 
   const userMessage = `
 Please generate a case summary for:
 
 Case Number: ${caseNumber ?? 'Not assigned'}
 Case Title: ${title}
-Case Type: ${caseType}
-Status: ${status}
+Case Type: ${caseType ?? 'Not specified'}
+Status: ${status ?? 'Not specified'}
 Client: ${clientName}
 Opposing Party: ${opposingParty ?? 'Not specified'}
 Court: ${courtName ?? 'Not specified'}
@@ -79,7 +96,10 @@ ${notes ?? 'No notes provided'}
         yield chunk.text()
       }
 
-      await deductCredits(uid, 'case-summary', 'AI: case summary')
+      await Promise.all([
+        deductCredits(uid, 'case-summary', 'AI: case summary'),
+        trackUsage(uid, 'case-summary', TOKEN_LIMITS.caseSummary),
+      ])
     } catch (err) {
       logger.error({ err, userId: uid }, 'AI case summary failed')
       yield '\n\nLawket AI assistant is unavailable. Please try again.'

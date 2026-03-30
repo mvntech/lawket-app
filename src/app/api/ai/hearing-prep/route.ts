@@ -4,6 +4,8 @@ import { SYSTEM_PROMPTS } from '@/lib/ai/prompts'
 import { canUseFeature, deductCredits } from '@/lib/credits/credits'
 import { createSSEStream } from '@/lib/ai/stream-helpers'
 import { getAuthenticatedUser } from '@/lib/ai/auth-helper'
+import { checkRateLimit, trackUsage } from '@/lib/ai/rate-limiter'
+import { hearingPrepSchema } from '@/lib/validations/ai.schema'
 import { logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
@@ -13,6 +15,26 @@ export async function POST(req: NextRequest) {
   const { userId, errorResponse } = await getAuthenticatedUser()
   if (!userId) return errorResponse!
   const uid: string = userId
+
+  const raw = await req.json()
+  const parsed = hearingPrepSchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.issues },
+      { status: 400 },
+    )
+  }
+
+  const rateCheck = await checkRateLimit(uid)
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "You've reached today's AI limit. Resets tomorrow.",
+        resetAt: rateCheck.resetAt,
+      },
+      { status: 429 },
+    )
+  }
 
   const creditCheck = await canUseFeature(uid, 'hearing-prep')
   if (!creditCheck.allowed) {
@@ -27,7 +49,6 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const body = await req.json()
   const {
     hearingTitle,
     hearingDate,
@@ -41,14 +62,7 @@ export async function POST(req: NextRequest) {
     caseDescription,
     caseNotes,
     previousHearings,
-  } = body
-
-  if (!hearingTitle || !hearingDate || !caseTitle) {
-    return NextResponse.json(
-      { error: 'hearingTitle, hearingDate, and caseTitle required' },
-      { status: 400 },
-    )
-  }
+  } = parsed.data
 
   const prevHearingsText =
     Array.isArray(previousHearings) && previousHearings.length > 0
@@ -95,7 +109,10 @@ ${caseNotes ?? 'No notes provided'}
         yield chunk.text()
       }
 
-      await deductCredits(uid, 'hearing-prep', 'AI: hearing prep')
+      await Promise.all([
+        deductCredits(uid, 'hearing-prep', 'AI: hearing prep'),
+        trackUsage(uid, 'hearing-prep', TOKEN_LIMITS.hearingPrep),
+      ])
     } catch (err) {
       logger.error({ err, userId: uid }, 'AI hearing prep failed')
       yield '\n\nLawket AI assistant is unavailable. Please try again.'

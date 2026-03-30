@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     default: 'Lawket',
     template: '%s | Lawket',
   },
-  description: 'Every Case. Always with you.',
+  description: 'Your Pocket Counsel',
   applicationName: 'Lawket',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'Lawket',
-    title: 'Lawket - Every Case. Always with you.',
+    title: 'Lawket - Your Pocket Counsel',
     description: 'Legal case management for solo lawyers and law firms.',
     locale: 'en_US',
   },
@@ -91,7 +91,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

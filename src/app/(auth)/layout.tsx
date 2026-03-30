@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <span className="text-primary">ket</span>
           </div>
           <p className="text-muted-foreground text-sm">
-            Every Case. Always with you.
+            Your Pocket Counsel
           </p>
         </div>
 

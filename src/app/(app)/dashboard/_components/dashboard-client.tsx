@@ -14,9 +14,8 @@ import { useAuth } from '@/hooks/use-auth'
 import { analytics, capturePageview } from '@/lib/analytics'
 import { queryKeys } from '@/lib/constants/query-keys'
 import { PageHeader } from '@/components/shared/page-header'
-import { Button } from '@/components/ui/button'
-import { Bell, Plus } from 'lucide-react'
-import { Theme } from '@fullcalendar/core/internal'
+import { NotificationBell } from '@/components/notifications/notification-bell'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 // helpers
 
@@ -89,6 +88,12 @@ export function DashboardClient() {
       <PageHeader
         title={`${getGreeting()}, ${firstName}`}
         subtitle={formatDate()}
+        action={
+          <div className="hidden md:flex items-center gap-1">
+            <ThemeToggle />
+            <NotificationBell userId={user?.id ?? ''} />
+          </div>
+        }
       />
       <div className="flex-1 space-y-4 p-4 md:px-6">
 

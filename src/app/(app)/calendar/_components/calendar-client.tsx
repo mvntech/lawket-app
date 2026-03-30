@@ -41,7 +41,7 @@ import type { DeadlinePriority } from '@/types/common.types'
 
 const DEADLINE_PRIORITY_COLORS: Record<DeadlinePriority, string> = {
   critical: '#ef4444',
-  high: '#f59e0b',
+  high: '#92400e',
   medium: '#3b82f6',
   low: '#9ca3af',
 }
@@ -251,9 +251,9 @@ export function CalendarClient({ initialCases }: CalendarClientProps) {
         title: buildEventTitle(h.case_number ?? h.case_title?.substring(0, 20), h.title),
         start: h.hearing_date,
         end: h.hearing_date,
-        backgroundColor: 'var(--color-primary, #f59e0b)',
-        borderColor: 'var(--color-primary, #f59e0b)',
-        textColor: '#000',
+        backgroundColor: 'var(--primary)',
+        borderColor: 'var(--primary)',
+        textColor: 'var(--primary-foreground)',
         extendedProps: {
           type: 'hearing',
           id: h.id,
@@ -362,10 +362,12 @@ export function CalendarClient({ initialCases }: CalendarClientProps) {
         action={
           <>
             <div className="hidden md:flex items-center gap-2">
-              <Button size="sm" onClick={() => openAddHearing()}>
+              <Button variant="outline" size="sm" onClick={() => openAddHearing()}>
+                <Plus className="h-4 w-4" />
                 Add hearing
               </Button>
-              <Button size="sm" variant="outline" onClick={() => openAddDeadline()}>
+              <Button variant="outline" size="sm" onClick={() => openAddDeadline()}>
+                <Plus className="h-4 w-4" />
                 Add deadline
               </Button>
             </div>

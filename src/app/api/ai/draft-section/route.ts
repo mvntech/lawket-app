@@ -4,26 +4,37 @@ import { SYSTEM_PROMPTS } from '@/lib/ai/prompts'
 import { canUseFeature, deductCredits } from '@/lib/credits/credits'
 import { createSSEStream } from '@/lib/ai/stream-helpers'
 import { getAuthenticatedUser } from '@/lib/ai/auth-helper'
+import { checkRateLimit, trackUsage } from '@/lib/ai/rate-limiter'
+import { draftSectionSchema } from '@/lib/validations/ai.schema'
 import { logger } from '@/lib/utils/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const VALID_SECTION_TYPES = [
-  'petition_intro',
-  'relief_sought',
-  'facts',
-  'legal_arguments',
-  'application',
-  'cover_letter',
-] as const
-
-type SectionType = (typeof VALID_SECTION_TYPES)[number]
-
 export async function POST(req: NextRequest) {
   const { userId, errorResponse } = await getAuthenticatedUser()
   if (!userId) return errorResponse!
   const uid: string = userId
+
+  const raw = await req.json()
+  const parsed = draftSectionSchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.issues },
+      { status: 400 },
+    )
+  }
+
+  const rateCheck = await checkRateLimit(uid)
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "You've reached today's AI limit. Resets tomorrow.",
+        resetAt: rateCheck.resetAt,
+      },
+      { status: 429 },
+    )
+  }
 
   const creditCheck = await canUseFeature(uid, 'draft-section')
   if (!creditCheck.allowed) {
@@ -38,15 +49,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const body = await req.json()
-  const { sectionType, caseContext } = body
-
-  if (!sectionType || !VALID_SECTION_TYPES.includes(sectionType as SectionType)) {
-    return NextResponse.json({ error: 'Invalid sectionType' }, { status: 400 })
-  }
-  if (!caseContext) {
-    return NextResponse.json({ error: 'caseContext required' }, { status: 400 })
-  }
+  const { sectionType, caseContext } = parsed.data
 
   const userMessage = `
 Draft the ${sectionType} section for:
@@ -69,7 +72,10 @@ ${caseContext}
         yield chunk.text()
       }
 
-      await deductCredits(uid, 'draft-section', 'AI: draft section')
+      await Promise.all([
+        deductCredits(uid, 'draft-section', 'AI: draft section'),
+        trackUsage(uid, 'draft-section', TOKEN_LIMITS.draftSection),
+      ])
     } catch (err) {
       logger.error({ err, userId: uid }, 'AI draft section failed')
       yield '\n\nLawket AI assistant is unavailable. Please try again.'

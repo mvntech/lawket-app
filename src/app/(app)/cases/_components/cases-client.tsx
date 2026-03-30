@@ -69,6 +69,7 @@ export function CasesClient({ initialCases, userId: _userId }: CasesClientProps)
             variant="outline"
             className="hidden md:flex"
           >
+            <Plus className="h-4 w-4" />
             Add case
           </Button>
         }
@@ -120,7 +121,7 @@ export function CasesClient({ initialCases, userId: _userId }: CasesClientProps)
       <button
         type="button"
         onClick={() => router.push(ROUTES.cases.new)}
-        className="fixed bottom-20 right-8 flex items-center justify-center h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="fixed bottom-20 z-50 right-8 flex items-center justify-center h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Add case"
       >
         <Plus className="h-6 w-6" aria-hidden="true" />
