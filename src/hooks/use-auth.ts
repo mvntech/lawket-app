@@ -63,7 +63,7 @@ export function useAuth() {
   })
 
   const signInWithOAuth = useMutation({
-    mutationFn: (provider: Extract<Provider, 'google' | 'github'>) =>
+    mutationFn: (provider: Extract<Provider, 'google' | 'facebook'>) =>
       authService.signInWithOAuth(provider),
     onError: (err) => {
       toast.error(getErrorMessage(err))

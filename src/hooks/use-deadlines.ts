@@ -129,13 +129,13 @@ export function useUpdateDeadline() {
       const applyUpdate = (d: DeadlineModel): DeadlineModel =>
         d.id === id
           ? {
-              ...d,
-              ...(Object.fromEntries(
-                Object.entries(data).filter(([, v]) => v !== undefined),
-              ) as Partial<DeadlineModel>),
-              updated_at: new Date().toISOString(),
-              _dirty: true,
-            }
+            ...d,
+            ...(Object.fromEntries(
+              Object.entries(data).filter(([, v]) => v !== undefined),
+            ) as Partial<DeadlineModel>),
+            updated_at: new Date().toISOString(),
+            _dirty: true,
+          }
           : d
 
       queryClient.setQueriesData<DeadlineModel[]>(
@@ -184,10 +184,10 @@ export function useMarkDeadlineComplete() {
         (old) =>
           Array.isArray(old)
             ? old.map((d) =>
-                d.id === id
-                  ? { ...d, is_completed: true, completed_at: now, _dirty: true }
-                  : d,
-              )
+              d.id === id
+                ? { ...d, is_completed: true, completed_at: now, _dirty: true }
+                : d,
+            )
             : old,
       )
 

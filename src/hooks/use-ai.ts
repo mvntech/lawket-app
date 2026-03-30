@@ -117,7 +117,7 @@ export function useDraftSectionAI() {
   return useAIStream('/api/ai/draft-section')
 }
 
-// ─── Non-streaming for deadline suggestions ───────────────────────────────────
+// non-streaming for deadline suggestions
 
 interface DeadlineSuggestion {
   title: string
@@ -140,9 +140,11 @@ export function useSuggestDeadlines() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      if (!res.ok) throw new Error('Failed to get suggestions')
-      const data = (await res.json()) as { deadlines: DeadlineSuggestion[] }
-      setDeadlines(data.deadlines)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to get suggestions')
+      }
+      setDeadlines(data.deadlines || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI unavailable')
     } finally {
