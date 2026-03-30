@@ -1,0 +1,273 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+
+  # pre-flight checks
+  preflight:
+    name: Pre-flight Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: pnpm tsc --noEmit
+
+      - name: Lint check
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test:run
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_ENV: test
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Coverage gate
+        run: |
+          pnpm test:coverage
+          node -e "
+            const r = require('./coverage/coverage-summary.json');
+            const pct = r.total.lines.pct;
+            console.log('Coverage: ' + pct + '%');
+            if (pct < 70) process.exit(1);
+          "
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_ENV: test
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Production build test
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          NEXT_PUBLIC_APP_ENV: production
+          NEXT_PUBLIC_APP_URL: https://lawket.app
+          NEXT_PUBLIC_PKR_RATE: '280'
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Secret bundle scan
+        run: |
+          echo "Scanning bundle for secrets..."
+          SECRETS=(
+            "AI"
+            "LEMONSQUEEZY_API_KEY"
+            "LEMONSQUEEZY_WEBHOOK"
+            "SUPABASE_SERVICE_ROLE"
+            "VAPID_PRIVATE_KEY"
+            "GEMINI_API_KEY"
+          )
+          FOUND=0
+          for S in "${SECRETS[@]}"; do
+            if grep -r "$S" .next/static/ \
+              --quiet 2>/dev/null; then
+              echo "❌ CRITICAL: '$S' exposed!"
+              FOUND=1
+            fi
+          done
+          if [ $FOUND -eq 1 ]; then
+            echo "ABORT: Secrets in bundle!"
+            exit 1
+          fi
+          echo "✅ Bundle is clean"
+
+  # deploy production
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: preflight
+    environment:
+      name: production
+      url: https://lawket.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run DB migrations
+        run: |
+          echo "Running migrations on prod..."
+          npx supabase db push \
+            --project-ref ${{ secrets.PROD_PROJECT_REF }}
+          echo "✅ Migrations complete"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy Edge Functions
+        run: |
+          npx supabase functions deploy \
+            send-reminders \
+            --project-ref ${{ secrets.PROD_PROJECT_REF }} \
+            --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy to Vercel production
+        run: |
+          pnpm add -g vercel
+          vercel deploy --prod \
+            --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Health check (with retries)
+        run: |
+          echo "Waiting for deployment..."
+          sleep 30
+
+          MAX_RETRIES=10
+          RETRY_DELAY=15
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Health check $i/$MAX_RETRIES"
+
+            RESPONSE=$(curl -sf \
+              -w "\n%{http_code}" \
+              https://lawket.app/api/health \
+              2>/dev/null || echo "000")
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | head -1)
+
+            echo "HTTP: $HTTP_CODE"
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              STATUS=$(echo "$BODY" | node -e "
+                let d='';
+                process.stdin.on('data',c=>d+=c);
+                process.stdin.on('end',()=>{
+                  try{
+                    const j=JSON.parse(d);
+                    console.log(j.status);
+                  }catch{
+                    console.log('unknown');
+                  }
+                });
+              ")
+
+              if [ "$STATUS" = "healthy" ]; then
+                echo "✅ Production is healthy!"
+                exit 0
+              fi
+            fi
+
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+          done
+
+          echo "❌ Health check failed"
+          exit 1
+
+      - name: Create Sentry release
+        run: |
+          npx @sentry/cli releases new "${{ github.sha }}"
+          npx @sentry/cli releases set-commits "${{ github.sha }}" --auto
+          npx @sentry/cli releases finalize "${{ github.sha }}"
+          npx @sentry/cli releases deploys "${{ github.sha }}" new -e production
+          echo "✅ Sentry release created"
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: Notify deployment
+        run: |
+          echo "🚀 Production deployment complete"
+          echo "SHA: ${{ github.sha }}"
+          echo "Time: $(date -u)"
+          echo "URL: https://lawket.app"
+
+  # post-deploy verification
+  verify:
+    name: Post-Deploy Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install Playwright
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Smoke tests on production
+        run: |
+          pnpm exec playwright test \
+            tests/e2e/health.spec.ts \
+            tests/e2e/pwa.spec.ts \
+            tests/e2e/security.spec.ts \
+            --project=chromium
+        env:
+          PLAYWRIGHT_BASE_URL: https://lawket.app
+
+      - name: Upload verification report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: post-deploy-report-${{ github.sha }}
+          path: playwright-report/
+          retention-days: 30

@@ -1,0 +1,282 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+
+  # ── Job 1: Code Quality
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: pnpm tsc --noEmit
+
+      - name: Lint check
+        run: pnpm lint
+
+      - name: Check for console.log
+        run: |
+          if grep -r "console\.log" src/ \
+            --include="*.ts" \
+            --include="*.tsx" \
+            --quiet 2>/dev/null; then
+            echo "❌ console.log found:"
+            grep -r "console\.log" src/ \
+              --include="*.ts" \
+              --include="*.tsx" -l
+            exit 1
+          fi
+          echo "✅ No console.log"
+
+      - name: Check for hardcoded secrets
+        run: |
+          patterns=(
+            "AI"
+            "LEMONSQUEEZY_API_KEY="
+            "LEMONSQUEEZY_WEBHOOK_SECRET="
+            "VAPID_PRIVATE_KEY="
+          )
+          found=0
+          for pattern in "${patterns[@]}"; do
+            if grep -r "$pattern" src/ \
+              --include="*.ts" \
+              --include="*.tsx" \
+              --quiet 2>/dev/null; then
+              echo "❌ Secret found: $pattern"
+              found=1
+            fi
+          done
+          if [ $found -eq 1 ]; then
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets"
+
+  # job 2: tests
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test:run
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_ENV: test
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Run coverage
+        run: pnpm test:coverage
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_ENV: test
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Coverage gate (70% minimum)
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "No coverage report found"
+            exit 1
+          fi
+          LINES=$(node -e "
+            const r = require('./coverage/coverage-summary.json');
+            console.log(r.total.lines.pct);
+          ")
+          echo "Line coverage: $LINES%"
+          node -e "
+            const pct = parseFloat('$LINES');
+            if (pct < 70) {
+              console.error('Coverage ' + pct + '% below 70% threshold');
+              process.exit(1);
+            }
+            console.log('✅ Coverage: ' + pct + '%');
+          "
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # job 3: build
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Production build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          NEXT_PUBLIC_APP_ENV: staging
+          NEXT_PUBLIC_APP_URL: https://staging.lawket.app
+          NEXT_PUBLIC_PKR_RATE: '280'
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Check secrets not in bundle
+        run: |
+          echo "Checking for secrets in bundle..."
+          patterns=(
+            "AI"
+            "LEMONSQUEEZY_API_KEY"
+            "LEMONSQUEEZY_WEBHOOK"
+            "SUPABASE_SERVICE_ROLE"
+            "VAPID_PRIVATE"
+          )
+          found=0
+          for p in "${patterns[@]}"; do
+            if grep -r "$p" .next/static/ \
+              --quiet 2>/dev/null; then
+              echo "❌ CRITICAL: $p in bundle!"
+              found=1
+            fi
+          done
+          if [ $found -eq 1 ]; then
+            exit 1
+          fi
+          echo "✅ No secrets in bundle"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: .next/
+          retention-days: 1
+
+  # job 4: e2e tests
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: .next/
+
+      - name: Run E2E tests
+        run: pnpm test:e2e --project=chromium
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          NEXT_PUBLIC_APP_ENV: staging
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

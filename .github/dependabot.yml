@@ -1,0 +1,36 @@
+version: 2
+updates:
+
+  # npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Karachi"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "mvntech"
+    labels:
+      - "dependencies"
+      - "automated"
+    groups:
+      # group minor + patch updates
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # manual review for major updates
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@supabase/*"
+        update-types: ["version-update:semver-major"]
+
+  # github actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
