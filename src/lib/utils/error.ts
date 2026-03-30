@@ -65,7 +65,11 @@ export function getErrorMessage(error: unknown): string {
     if (msg.includes('email not confirmed')) {
       return 'Please confirm your email before signing in.'
     }
-    if (msg.includes('user already registered') || msg.includes('already been registered')) {
+    if (
+      msg.includes('user already registered') ||
+      msg.includes('already been registered') ||
+      msg.includes('already exists')
+    ) {
       return 'An account with this email already exists.'
     }
     if (msg.includes('session')) {

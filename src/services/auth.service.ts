@@ -9,6 +9,20 @@ import { db } from '@/lib/db/dexie'
 export const authService = {
   async signUp(email: string, password: string, fullName: string) {
     try {
+      // check for duplicate email server-side before calling supabase auth
+      const checkRes = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase() }),
+      })
+
+      if (checkRes.ok) {
+        const { exists } = (await checkRes.json()) as { exists: boolean }
+        if (exists) {
+          throw new AuthError('An account with this email already exists.')
+        }
+      }
+
       const supabase = getSupabaseClient()
       const { data, error } = await supabase.auth.signUp({
         email,
