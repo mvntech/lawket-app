@@ -395,9 +395,8 @@ export const hearingsService = {
 
       if (isOnline()) {
         const supabase = getSupabaseClient()
-        const { error } = await hearingsFrom(supabase)
-          .update({ is_deleted: true, deleted_at: now })
-          .eq('id', id)
+        // use select defined rpc to avoid SELECT-policy WITH CHECK inference blocking direct UPDATE when is_deleted → true (error 42501)
+        const { error } = await (supabase as any).rpc('soft_delete_hearing', { p_id: id })
 
         if (error) {
           logger.warn({ err: error, id }, 'Supabase hearing soft-delete failed, queuing')

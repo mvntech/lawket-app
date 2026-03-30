@@ -4,6 +4,7 @@ import { DB_TABLES } from '@/lib/constants/db-tables'
 import { StorageError, DatabaseError, AuthError } from '@/types/common.types'
 import { logger, captureError } from '@/lib/analytics'
 import type { Profile } from '@/types/database.types'
+import { updateProfileSchema } from '@/lib/validations/profile.schema'
 import type { UpdateProfileInput } from '@/lib/validations/profile.schema'
 
 // types
@@ -37,10 +38,17 @@ export const settingsService = {
   },
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<Profile> {
+    const parsed = updateProfileSchema.safeParse(input)
+    if (!parsed.success) {
+      throw new DatabaseError(
+        `Invalid profile data: ${parsed.error.issues[0]?.message ?? 'Validation failed'}`,
+      )
+    }
+
     try {
       const supabase = getSupabaseClient()
       const { data, error } = await profilesFrom(supabase)
-        .update(input)
+        .update(parsed.data)
         .eq('id', userId)
         .select()
         .single()

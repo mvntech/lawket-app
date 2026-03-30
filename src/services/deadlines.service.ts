@@ -201,7 +201,25 @@ export const deadlinesService = {
         return a.due_date.localeCompare(b.due_date)
       })
 
-      return local
+      const overdueCaseIds = [...new Set(local.map((d) => d.case_id))]
+      const overdueCaseMap = new Map<string, { title: string; case_number: string; status: CaseStatus }>()
+      if (overdueCaseIds.length > 0) {
+        const overdueCases = await db.cases
+          .where('id')
+          .anyOf(overdueCaseIds)
+          .filter((c) => !c.is_deleted)
+          .toArray()
+        for (const c of overdueCases) {
+          overdueCaseMap.set(c.id, { title: c.title, case_number: c.case_number, status: c.status })
+        }
+      }
+
+      const enriched: DeadlineModel[] = local.map((d) => {
+        const caseData = overdueCaseMap.get(d.case_id)
+        return { ...d, case_title: caseData?.title, case_number: caseData?.case_number, case_status: caseData?.status }
+      })
+
+      return enriched
     } catch (err) {
       logger.error({ err, userId }, 'deadlinesService.getOverdue failed')
       captureError(err)
@@ -391,9 +409,9 @@ export const deadlinesService = {
 
       if (isOnline()) {
         const supabase = getSupabaseClient()
-        const { error } = await deadlinesFrom(supabase)
-          .update({ is_deleted: true, deleted_at: now })
-          .eq('id', id)
+        // use SECURITY DEFINER RPC to avoid SELECT-policy WITH CHECK inference
+        // blocking direct UPDATE when is_deleted → true (error 42501)
+        const { error } = await (supabase as any).rpc('soft_delete_deadline', { p_id: id })
 
         if (error) {
           logger.warn({ err: error, id }, 'Supabase deadline soft-delete failed, queuing')

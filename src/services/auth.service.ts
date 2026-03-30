@@ -47,7 +47,7 @@ export const authService = {
     }
   },
 
-  async signInWithOAuth(provider: Extract<Provider, 'google' | 'github'>) {
+  async signInWithOAuth(provider: Extract<Provider, 'google' | 'facebook'>) {
     try {
       const supabase = getSupabaseClient()
       const { error } = await supabase.auth.signInWithOAuth({

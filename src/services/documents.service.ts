@@ -8,6 +8,7 @@ import { MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } from '@/lib/constants/app'
 import { logger, captureError, analytics } from '@/lib/analytics'
 import { DatabaseError, StorageError } from '@/types/common.types'
 import { formatFileSize } from '@/lib/utils/format'
+import { uploadDocumentSchema, updateDocTypeSchema } from '@/lib/validations/document.schema'
 import type { DocumentType } from '@/types/database.types'
 
 // types
@@ -195,6 +196,14 @@ export const documentsService = {
     userId: string,
     metadata: UploadDocumentInput,
   ): Promise<DocumentModel> {
+    // validate metadata fields
+    const metaParsed = uploadDocumentSchema.safeParse(metadata)
+    if (!metaParsed.success) {
+      throw new StorageError(
+        `Invalid document metadata: ${metaParsed.error.issues[0]?.message ?? 'Validation failed'}`,
+      )
+    }
+
     // client-side validation
     const allowedTypes: readonly string[] = ALLOWED_MIME_TYPES
     if (!allowedTypes.includes(file.type)) {
@@ -290,13 +299,11 @@ export const documentsService = {
       // invalidate signed URL cache regardless of Supabase outcome
       signedUrlCache.delete(filePath)
 
-      // attempt Supabase sync; failure is non-fatal (will sync on next load)
+      // attempt supabase sync via security definer rpc (bypasses SELECT-policy WITH CHECK inference that blocks direct UPDATE when is_deleted → true)
       if (online) {
         try {
           const supabase = getSupabaseClient()
-          const { error } = await docsFrom(supabase)
-            .update({ is_deleted: true, deleted_at: now })
-            .eq('id', id)
+          const { error } = await (supabase as any).rpc('soft_delete_document', { p_id: id })
 
           if (error) {
             logger.warn({ err: error, id }, 'Supabase document soft-delete failed - will sync later')
@@ -318,6 +325,13 @@ export const documentsService = {
   },
 
   async updateDocType(id: string, docType: DocumentType): Promise<void> {
+    const typeParsed = updateDocTypeSchema.safeParse({ doc_type: docType })
+    if (!typeParsed.success) {
+      throw new DatabaseError(
+        `Invalid document type: ${typeParsed.error.issues[0]?.message ?? 'Validation failed'}`,
+      )
+    }
+
     try {
       await db.documents.update(id, { doc_type: docType, _synced: false })
 
