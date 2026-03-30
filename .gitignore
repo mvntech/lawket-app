@@ -70,3 +70,7 @@ next-env.d.ts
 # claude
 claude.md
 .claude/settings.local.json
+
+
+# sentry Config File
+.env.sentry-build-plugin
