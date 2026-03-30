@@ -407,37 +407,54 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      soft_delete_document: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      soft_delete_hearing: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      soft_delete_deadline: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      soft_delete_contact: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+    }
     Enums: {
       case_status: 'active' | 'pending' | 'closed' | 'archived'
       case_type:
-        | 'civil'
-        | 'criminal'
-        | 'family'
-        | 'corporate'
-        | 'property'
-        | 'constitutional'
-        | 'tax'
-        | 'labour'
-        | 'other'
+      | 'civil'
+      | 'criminal'
+      | 'family'
+      | 'corporate'
+      | 'property'
+      | 'constitutional'
+      | 'tax'
+      | 'labour'
+      | 'other'
       deadline_priority: 'low' | 'medium' | 'high' | 'critical'
       contact_role:
-        | 'client'
-        | 'opposing_counsel'
-        | 'judge'
-        | 'witness'
-        | 'expert'
-        | 'court_staff'
-        | 'other'
+      | 'client'
+      | 'opposing_counsel'
+      | 'judge'
+      | 'witness'
+      | 'expert'
+      | 'court_staff'
+      | 'other'
       document_type:
-        | 'petition'
-        | 'affidavit'
-        | 'evidence'
-        | 'order'
-        | 'judgment'
-        | 'correspondence'
-        | 'contract'
-        | 'other'
+      | 'petition'
+      | 'affidavit'
+      | 'evidence'
+      | 'order'
+      | 'judgment'
+      | 'correspondence'
+      | 'contract'
+      | 'other'
       notification_type: 'hearing_reminder' | 'deadline_reminder' | 'case_update' | 'system'
     }
     CompositeTypes: Record<string, never>
@@ -460,41 +477,41 @@ export type Enums<T extends keyof Database['public']['Enums']> =
 
 // row type aliases (import these in services)
 
-export type Profile          = Tables<'profiles'>
-export type Case             = Tables<'cases'>
-export type Hearing          = Tables<'hearings'>
-export type Deadline         = Tables<'deadlines'>
-export type Document         = Tables<'documents'>
-export type Contact          = Tables<'contacts'>
-export type CaseContact      = Tables<'case_contacts'>
-export type NotificationLog  = Tables<'notification_logs'>
-export type AuditLog         = Tables<'audit_logs'>
+export type Profile = Tables<'profiles'>
+export type Case = Tables<'cases'>
+export type Hearing = Tables<'hearings'>
+export type Deadline = Tables<'deadlines'>
+export type Document = Tables<'documents'>
+export type Contact = Tables<'contacts'>
+export type CaseContact = Tables<'case_contacts'>
+export type NotificationLog = Tables<'notification_logs'>
+export type AuditLog = Tables<'audit_logs'>
 
 // insert type aliases
 
-export type ProfileInsert         = TablesInsert<'profiles'>
-export type CaseInsert            = TablesInsert<'cases'>
-export type HearingInsert         = TablesInsert<'hearings'>
-export type DeadlineInsert        = TablesInsert<'deadlines'>
-export type DocumentInsert        = TablesInsert<'documents'>
-export type ContactInsert         = TablesInsert<'contacts'>
+export type ProfileInsert = TablesInsert<'profiles'>
+export type CaseInsert = TablesInsert<'cases'>
+export type HearingInsert = TablesInsert<'hearings'>
+export type DeadlineInsert = TablesInsert<'deadlines'>
+export type DocumentInsert = TablesInsert<'documents'>
+export type ContactInsert = TablesInsert<'contacts'>
 export type NotificationLogInsert = TablesInsert<'notification_logs'>
 
 // update type aliases
 
-export type ProfileUpdate         = TablesUpdate<'profiles'>
-export type CaseUpdate            = TablesUpdate<'cases'>
-export type HearingUpdate         = TablesUpdate<'hearings'>
-export type DeadlineUpdate        = TablesUpdate<'deadlines'>
-export type DocumentUpdate        = TablesUpdate<'documents'>
-export type ContactUpdate         = TablesUpdate<'contacts'>
+export type ProfileUpdate = TablesUpdate<'profiles'>
+export type CaseUpdate = TablesUpdate<'cases'>
+export type HearingUpdate = TablesUpdate<'hearings'>
+export type DeadlineUpdate = TablesUpdate<'deadlines'>
+export type DocumentUpdate = TablesUpdate<'documents'>
+export type ContactUpdate = TablesUpdate<'contacts'>
 export type NotificationLogUpdate = TablesUpdate<'notification_logs'>
 
 // enum aliases
 
-export type CaseStatus        = Enums<'case_status'>
-export type CaseType          = Enums<'case_type'>
-export type DeadlinePriority  = Enums<'deadline_priority'>
-export type ContactRole       = Enums<'contact_role'>
-export type DocumentType      = Enums<'document_type'>
-export type NotificationType  = Enums<'notification_type'>
+export type CaseStatus = Enums<'case_status'>
+export type CaseType = Enums<'case_type'>
+export type DeadlinePriority = Enums<'deadline_priority'>
+export type ContactRole = Enums<'contact_role'>
+export type DocumentType = Enums<'document_type'>
+export type NotificationType = Enums<'notification_type'>
