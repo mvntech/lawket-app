@@ -96,9 +96,9 @@ describe('Security', () => {
   })
 
   describe('API key exposure', () => {
-    it('ANTHROPIC_API_KEY must not be a NEXT_PUBLIC_ variable', () => {
+    it('GEMINI_API_KEY must not be a NEXT_PUBLIC_ variable', () => {
       // NEXT_PUBLIC_ vars are bundled into the client (never use them for secrets)
-      expect('ANTHROPIC_API_KEY'.startsWith('NEXT_PUBLIC_')).toBe(false)
+      expect('GEMINI_API_KEY'.startsWith('NEXT_PUBLIC_')).toBe(false)
     })
 
     it('GEMINI_API_KEY must not be a NEXT_PUBLIC_ variable', () => {
