@@ -2,7 +2,7 @@
   "id": "/?source=pwa",
   "name": "Lawket",
   "short_name": "Lawket",
-  "description": "Every Case. Always with you.",
+  "description": "Your Pocket Counsel",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
