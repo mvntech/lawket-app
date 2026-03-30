@@ -1,5 +1,5 @@
 export const APP_NAME = 'Lawket'
-export const APP_TAGLINE = 'Every Case. Always with you.'
+export const APP_TAGLINE = 'Your Pocket Counsel'
 
 // pagination
 export const DEFAULT_PAGE_SIZE = 20

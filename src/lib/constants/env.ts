@@ -17,7 +17,8 @@ export const ENV = {
     subject: process.env.VAPID_SUBJECT!,
   },
   anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY!,
+    apiKey: process.env.GEMINI_API_KEY!,
+    model: process.env.AI_MODEL!,
   },
   lemonsqueezy: {
     apiKey: process.env.LEMONSQUEEZY_API_KEY!,
@@ -51,7 +52,7 @@ export function validateEnv() {
       ? [
         'VAPID_PRIVATE_KEY',
         'VAPID_SUBJECT',
-        'ANTHROPIC_API_KEY',
+        'GEMINI_API_KEY',
         'SUPABASE_SERVICE_ROLE_KEY',
       ]
       : []

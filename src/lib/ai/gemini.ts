@@ -12,7 +12,7 @@ if (typeof window !== 'undefined') {
 
 export const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
-export const AI_MODEL = 'gemini-2.5-flash-lite'
+export const AI_MODEL = process.env.AI_MODEL || 'gemini-2.5-flash-lite'
 
 export const TOKEN_LIMITS = {
   caseSummary: 800,

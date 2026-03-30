@@ -1,26 +1,34 @@
 import { getSupabaseServer } from '@/lib/supabase/server'
 
-const HOURLY_LIMIT = 20
+const DAILY_LIMIT = 20
 
-export async function checkRateLimit(
-  userId: string,
-): Promise<{
+function getStartOfTodayUTC(): string {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
+}
+
+function getStartOfTomorrowUTC(): Date {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
+}
+
+export async function checkRateLimit(userId: string): Promise<{
   allowed: boolean
   remaining: number
   resetAt: Date
 }> {
   const supabase = await getSupabaseServer()
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const startOfToday = getStartOfTodayUTC()
 
   const { count } = await (supabase as any)
     .from('ai_usage')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .gte('created_at', oneHourAgo)
+    .gte('created_at', startOfToday)
 
   const used = (count as number | null) ?? 0
-  const remaining = Math.max(0, HOURLY_LIMIT - used)
-  const resetAt = new Date(Date.now() + 60 * 60 * 1000)
+  const remaining = Math.max(0, DAILY_LIMIT - used)
+  const resetAt = getStartOfTomorrowUTC()
 
   return {
     allowed: remaining > 0,

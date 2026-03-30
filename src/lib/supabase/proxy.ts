@@ -3,9 +3,9 @@ import type { CookieOptions } from '@supabase/ssr'
 import type { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@/types/database.types'
 
-// session refresh helper used exclusively by src/middleware.ts.
+// session refresh helper used exclusively by src/proxy.ts.
 // mutates the response cookies in-place so the session stays alive.
-export function createSupabaseMiddlewareClient(
+export function createSupabaseProxyClient(
   request: NextRequest,
   response: NextResponse,
 ) {
