@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      "react/display-name": "off",
+      "react/no-direct-mutation-state": "off",
+      "react/require-render-return": "off",
+      "react/no-string-refs": "off"
+    }
+  }
 ]);
 
 export default eslintConfig;

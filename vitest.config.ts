@@ -19,9 +19,6 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
       reportsDirectory: './coverage',
-      // Only measure coverage for files that actually have tests.
-      // Untested files (dashboard.service, hooks, lib/ai, stores) are excluded
-      // so the threshold reflects real coverage quality, not zero-file drag.
       include: [
         'src/services/auth.service.ts',
         'src/services/cases.service.ts',
@@ -29,17 +26,21 @@ export default defineConfig({
         'src/services/deadlines.service.ts',
         'src/services/documents.service.ts',
         'src/services/hearings.service.ts',
+        'src/services/settings.service.ts',
         'src/lib/credits/constants.ts',
         'src/lib/credits/credits.ts',
+        'src/lib/ai/rate-limiter.ts',
+        'src/lib/validations/ai.schema.ts',
+        'src/lib/validations/document.schema.ts',
       ],
       exclude: [
         'src/**/*.d.ts',
       ],
       thresholds: {
-        lines: 55,
-        functions: 58,
-        branches: 63,
-        statements: 55,
+        lines: 70,
+        functions: 70,
+        branches: 70,
+        statements: 70,
       },
     },
   },
