@@ -262,7 +262,7 @@ export const HearingForm = forwardRef<HearingFormHandle, HearingFormProps>(
                 {...register('court_name')}
               />
               {isInherited && (
-                <p className="text-xs text-muted-foreground">Inherited from case &#40;you can override this&#41;</p>
+                <p className="text-xs text-muted-foreground">&#40;you can override this&#41;</p>
               )}
             </div>
           )
@@ -285,7 +285,7 @@ export const HearingForm = forwardRef<HearingFormHandle, HearingFormProps>(
                 </Label>
                 <Input id="judge_name" placeholder="e.g. Justice Khan" {...register('judge_name')} />
                 {isJudgeInherited && (
-                  <p className="text-xs text-muted-foreground">Inherited from case</p>
+                  <p className="text-xs text-muted-foreground">&#40;you can override this&#41;</p>
                 )}
               </div>
             </div>

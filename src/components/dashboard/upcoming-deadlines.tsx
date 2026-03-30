@@ -35,9 +35,9 @@ function getRelativeDue(dueDateStr: string): { label: string; urgency: DueUrgenc
 }
 
 const urgencyClass: Record<DueUrgency, string> = {
-  today: 'text-amber-600 dark:text-amber-400 font-semibold',
-  tomorrow: 'text-amber-600 dark:text-amber-400 font-semibold',
-  warning: 'text-orange-600 dark:text-orange-400',
+  today: 'text-accent-foreground',
+  tomorrow: 'text-primary',
+  warning: 'text-primary',
   normal: 'text-muted-foreground',
 }
 
@@ -168,11 +168,6 @@ export const UpcomingDeadlines = memo(function UpcomingDeadlines() {
                 <div className="flex flex-col gap-2">
                   {shownUpcoming.map((deadline) => {
                     const { label, urgency } = getRelativeDue(deadline.due_date);
-                    const priorityColor =
-                      deadline.priority === 'critical' ? 'bg-red-500' :
-                        deadline.priority === 'high' ? 'bg-orange-500' :
-                          deadline.priority === 'medium' ? 'bg-amber-500' : 'bg-border';
-
                     return (
                       <Link
                         key={deadline.id}
@@ -226,7 +221,16 @@ export const UpcomingDeadlines = memo(function UpcomingDeadlines() {
             <div className="mt-2 flex items-center justify-between border-t border-border/40 pt-3">
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">
-                  {overdueDeadlines.length} Overdue<span className="mx-1">•</span>{shownUpcoming.length} Upcoming
+                  {overdueDeadlines.length > 0 && (
+                    <>
+                      {overdueDeadlines.length} Overdue<span className="mx-1">•</span>
+                    </>
+                  )}
+                  {shownUpcoming.length > 0 && (
+                    <>
+                      {shownUpcoming.length} Upcoming
+                    </>
+                  )}
                 </span>
               </div>
 

@@ -54,7 +54,7 @@ export function AdRewardSection() {
           </div>
 
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <span className="bg-primary text-black text-xs font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-primary text-black text-xs font-medium px-2 py-0.5 rounded-full">
               +1 credit
             </span>
             <Button

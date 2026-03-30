@@ -119,7 +119,7 @@ export const QuickActions = memo(function QuickActions() {
         isOpen={hearing.isOpen}
         onClose={hearing.close}
         title="Add hearing"
-        subtitle="Add a new hearing to your calendar."
+        subtitle="Add a new hearing to your calendar"
         size="md"
         isLoading={hearingLoading}
         footer={
@@ -147,6 +147,7 @@ export const QuickActions = memo(function QuickActions() {
         isOpen={deadline.isOpen}
         onClose={deadline.close}
         title="Add deadline"
+        subtitle="Add a new deadline to your calendar"
         size="md"
         isLoading={deadlineLoading}
         footer={
@@ -174,7 +175,7 @@ export const QuickActions = memo(function QuickActions() {
         isOpen={document.isOpen}
         onClose={document.close}
         title="Upload document"
-        subtitle="Select a case and drop a file to upload."
+        subtitle="Select a case and category, then drop a file to upload"
         size="sm"
       >
         {user && (

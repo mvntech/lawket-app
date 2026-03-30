@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils/cn'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { CaseStatus, CaseType } from '@/types/common.types'
 
 type StatusFilter = CaseStatus | 'all'
@@ -19,19 +25,32 @@ interface CaseFilterBarProps {
 }
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
+  { value: 'all', label: 'All statuses' },
   { value: 'active', label: 'Active' },
   { value: 'pending', label: 'Pending' },
   { value: 'closed', label: 'Closed' },
   { value: 'archived', label: 'Archived' },
 ]
 
+const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: 'all', label: 'All categories' },
+  { value: 'civil', label: 'Civil' },
+  { value: 'criminal', label: 'Criminal' },
+  { value: 'family', label: 'Family' },
+  { value: 'corporate', label: 'Corporate' },
+  { value: 'property', label: 'Property' },
+  { value: 'constitutional', label: 'Constitutional' },
+  { value: 'tax', label: 'Tax' },
+  { value: 'labour', label: 'Labour' },
+  { value: 'other', label: 'Other' },
+]
+
 export function CaseFilterBar({
   onSearchChange,
   onStatusChange,
-  onTypeChange: _onTypeChange,
+  onTypeChange,
   activeStatus,
-  activeType: _activeType,
+  activeType,
   totalCount,
 }: CaseFilterBarProps) {
   const [search, setSearch] = useState('')
@@ -78,24 +97,35 @@ export function CaseFilterBar({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {STATUS_OPTIONS.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onStatusChange(value)}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                activeStatus === value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {/* Filter row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Status */}
+        <Select value={activeStatus} onValueChange={(v) => onStatusChange(v as StatusFilter)}>
+          <SelectTrigger className="h-8 text-xs w-auto min-w-[120px]" aria-label="Filter by status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map(({ value, label }) => (
+              <SelectItem key={value} value={value} className="text-xs">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Case type */}
+        <Select value={activeType} onValueChange={(v) => onTypeChange(v as TypeFilter)}>
+          <SelectTrigger className="h-8 text-xs w-auto min-w-[130px]" aria-label="Filter by case type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TYPE_OPTIONS.map(({ value, label }) => (
+              <SelectItem key={value} value={value} className="text-xs">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <span className="text-xs text-muted-foreground ml-auto shrink-0">
           {totalCount} {totalCount === 1 ? 'case' : 'cases'}

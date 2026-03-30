@@ -1,22 +1,19 @@
-import { Building2, Mail, Phone, Pencil, Trash2 } from 'lucide-react'
+'use client'
+
+import { Building2, Mail, Pencil, Trash2 } from 'lucide-react'
 import { ContactAvatar } from './contact-avatar'
 import { RoleBadge } from './role-badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
 import type { ContactModel } from '@/types/common.types'
 
-// props
-
 interface ContactCardProps {
   contact: ContactModel
   onClick?: () => void
   onEdit?: () => void
   onDelete?: () => void
-  showCaseLink?: boolean
   compact?: boolean
 }
-
-// component
 
 export function ContactCard({
   contact,
@@ -25,6 +22,13 @@ export function ContactCard({
   onDelete,
   compact = false,
 }: ContactCardProps) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault()
+      onClick()
+    }
+  }
+
   if (compact) {
     return (
       <div
@@ -45,20 +49,18 @@ export function ContactCard({
                 size="icon"
                 className="h-7 w-7"
                 onClick={(e) => { e.stopPropagation(); onEdit() }}
-                aria-label={`Edit ${contact.full_name}`}
               >
-                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
             )}
             {onDelete && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="h-7 w-7 text-destructive hover:bg-destructive/10"
                 onClick={(e) => { e.stopPropagation(); onDelete() }}
-                aria-label={`Remove ${contact.full_name}`}
               >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
@@ -69,73 +71,66 @@ export function ContactCard({
 
   return (
     <div
-      role="listitem"
+      role={onClick ? 'button' : 'listitem'}
       aria-label={`Contact: ${contact.full_name}`}
-      className={cn(
-        'group flex items-start gap-3 p-4 rounded-lg border bg-card transition-colors',
-        onClick && 'cursor-pointer hover:bg-accent/30',
-      )}
+      tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      className={cn(
+        'group relative rounded-lg border bg-card p-4 transition-shadow duration-200',
+        onClick && 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      )}
     >
-      <ContactAvatar name={contact.full_name} size="md" />
+      {(onEdit || onDelete) && (
+        <div
+          className="absolute top-3 right-3 flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {onEdit && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
 
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-semibold text-foreground">{contact.full_name}</p>
-        <RoleBadge role={contact.role} />
-
-        {contact.organization && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span className="truncate">{contact.organization}</span>
-          </div>
-        )}
-
-        {(contact.email || contact.phone) && (
-          <div className="flex flex-col gap-0.5 mt-1">
-            {contact.email && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Mail className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">{contact.email}</span>
-              </div>
-            )}
-            {contact.phone && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Phone className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span>{contact.phone}</span>
-              </div>
-            )}
-          </div>
-        )}
+      <div className="flex items-start gap-3">
+        <ContactAvatar name={contact.full_name} size="md" className="shrink-0" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-foreground truncate pr-16">
+            {contact.full_name}
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground truncate">
+            {contact.phone || 'N/A'}
+          </p>
+        </div>
       </div>
 
-      <div
-        className={cn(
-          'flex items-center gap-1 shrink-0',
-          'opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity',
+      <div className="mt-3 pt-3 border-t flex items-center gap-3 text-xs text-muted-foreground">
+        <RoleBadge role={contact.role} size="sm" />
+
+        {contact.email && (
+          <span className="flex items-center gap-1 min-w-0 truncate">
+            <Mail className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{contact.email}</span>
+          </span>
         )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {onEdit && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onEdit}
-            aria-label={`Edit ${contact.full_name}`}
-          >
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
-        )}
-        {onDelete && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={onDelete}
-            aria-label={`Delete ${contact.full_name}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
+
+        {contact.organization && (
+          <span className="ml-auto flex items-center gap-1 shrink-0">
+            <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{contact.organization}</span>
+          </span>
         )}
       </div>
     </div>

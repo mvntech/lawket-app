@@ -25,7 +25,7 @@ export function AIPanelTrigger({
       aria-label="Open Lawket AI assistant"
       className={cn(
         // base (shared all sizes)
-        'fixed z-41',
+        'fixed z-50',
         'flex items-center justify-center',
         'bg-primary text-primary-foreground',
         'shadow-lg',
@@ -38,7 +38,7 @@ export function AIPanelTrigger({
         'focus-visible:ring-offset-2',
 
         // mobile (FAB bottom right, above mobile nav - bottom-20)
-        'bottom-20 right-4',
+        'bottom-20 right-8',
         'w-14 h-14 rounded-full',
 
         // desktop (pill on right edge, vertically centered, rounded left only)
@@ -66,7 +66,7 @@ export function AIPanelTrigger({
         aria-hidden="true"
       />
 
-            <span
+      <span
         className={cn(
           'hidden md:block',
           'text-xs font-semibold',
@@ -79,7 +79,7 @@ export function AIPanelTrigger({
         AI
       </span>
 
-            <span
+      <span
         className={cn(
           'absolute',
           '-top-1 -right-1',
@@ -91,9 +91,7 @@ export function AIPanelTrigger({
           'border-2 border-background',
           balance === 0
             ? 'bg-destructive text-destructive-foreground'
-            : balance < 5
-              ? 'bg-yellow-500 text-black'
-              : 'bg-primary-foreground text-primary',
+            : 'bg-primary text-primary-foreground',
         )}
         aria-label={balance + ' credits'}
       >
