@@ -94,27 +94,33 @@ describe('formatTime', () => {
   })
 })
 
+function localDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 describe('daysUntil', () => {
   it('returns 0 for today', () => {
-    const today = new Date().toISOString().split('T')[0]
-    expect(daysUntil(today)).toBe(0)
+    expect(daysUntil(localDateStr(new Date()))).toBe(0)
   })
 
   it('returns 1 for tomorrow', () => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    expect(daysUntil(tomorrow.toISOString().split('T')[0])).toBe(1)
+    expect(daysUntil(localDateStr(tomorrow))).toBe(1)
   })
 
   it('returns 7 for a week from now', () => {
     const nextWeek = new Date()
     nextWeek.setDate(nextWeek.getDate() + 7)
-    expect(daysUntil(nextWeek.toISOString().split('T')[0])).toBe(7)
+     expect(daysUntil(localDateStr(nextWeek))).toBe(7)
   })
 
   it('returns negative for past dates', () => {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
-    expect(daysUntil(yesterday.toISOString().split('T')[0])).toBe(-1)
+    expect(daysUntil(localDateStr(yesterday))).toBe(-1)
   })
 })

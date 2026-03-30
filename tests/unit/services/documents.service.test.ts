@@ -176,6 +176,100 @@ describe('documentsService', () => {
     })
   })
 
+  // upload — metadata validation
+
+  describe('upload (metadata validation)', () => {
+    it('rejects metadata.name that is empty', async () => {
+      const file = new File(['content'], 'doc.pdf', { type: 'application/pdf' })
+
+      await expect(
+        documentsService.upload(file, 'case-123', 'user-123', { name: '' })
+      ).rejects.toThrow(/name|required|metadata/i)
+
+      expect(mockSupabase.storage.from).not.toHaveBeenCalled()
+    })
+
+    it('rejects metadata.name exceeding 200 chars', async () => {
+      const file = new File(['content'], 'doc.pdf', { type: 'application/pdf' })
+
+      await expect(
+        documentsService.upload(file, 'case-123', 'user-123', { name: 'A'.repeat(201) })
+      ).rejects.toThrow(/name|long|metadata/i)
+
+      expect(mockSupabase.storage.from).not.toHaveBeenCalled()
+    })
+
+    it('rejects invalid doc_type value', async () => {
+      const file = new File(['content'], 'doc.pdf', { type: 'application/pdf' })
+
+      await expect(
+        documentsService.upload(file, 'case-123', 'user-123', {
+          name: 'Valid Name',
+          doc_type: 'invalid_type' as never,
+        })
+      ).rejects.toThrow()
+
+      expect(mockSupabase.storage.from).not.toHaveBeenCalled()
+    })
+
+    it('rejects notes exceeding 2000 chars', async () => {
+      const file = new File(['content'], 'doc.pdf', { type: 'application/pdf' })
+
+      await expect(
+        documentsService.upload(file, 'case-123', 'user-123', {
+          name: 'Valid Name',
+          notes: 'N'.repeat(2001),
+        })
+      ).rejects.toThrow()
+
+      expect(mockSupabase.storage.from).not.toHaveBeenCalled()
+    })
+
+    it('accepts all valid doc_type enum values', async () => {
+      const validTypes = ['petition', 'affidavit', 'evidence', 'order', 'judgment', 'correspondence', 'contract', 'other'] as const
+
+      for (const doc_type of validTypes) {
+        const file = new File(['content'], 'doc.pdf', { type: 'application/pdf' })
+
+        mockSupabase.storage.from = vi.fn().mockReturnValue({
+          upload: vi.fn().mockResolvedValue({ data: { path: 'p' }, error: null }),
+          createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: 'https://mock.url' }, error: null }),
+          remove: vi.fn().mockResolvedValue({ error: null }),
+        })
+        mockSupabase.from = vi.fn().mockReturnValue({
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+          then: (resolve: (v: unknown) => unknown) =>
+            Promise.resolve({ data: null, error: null }).then(resolve),
+        })
+
+        await expect(
+          documentsService.upload(file, 'case-123', 'user-123', { name: 'Doc', doc_type })
+        ).resolves.toBeDefined()
+      }
+    })
+  })
+
+  // updateDocType — validation
+
+  describe('updateDocType', () => {
+    it('rejects invalid doc_type string', async () => {
+      await expect(
+        documentsService.updateDocType('doc-123', 'invalid_type' as never)
+      ).rejects.toThrow()
+
+      expect(mockSupabase.from).not.toHaveBeenCalled()
+    })
+
+    it('accepts valid doc_type and calls db update', async () => {
+      await documentsService.updateDocType('doc-123', 'affidavit')
+
+      expect(vi.mocked(db.documents.update)).toHaveBeenCalledWith(
+        'doc-123',
+        expect.objectContaining({ doc_type: 'affidavit' }),
+      )
+    })
+  })
+
   // getSignedUrl
 
   describe('getSignedUrl', () => {
@@ -217,6 +311,7 @@ describe('documentsService', () => {
 
   describe('softDelete', () => {
     it('sets is_deleted true in DB only - file remains in storage', async () => {
+      vi.mocked(db.documents.get).mockResolvedValue({ id: 'doc-123', user_id: 'user-123' } as any)
       const removeMock = vi.fn()
       mockSupabase.storage.from = vi.fn().mockReturnValue({
         remove: removeMock,
