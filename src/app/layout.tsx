@@ -5,6 +5,8 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import { Providers } from './providers'
+import { SerwistInit } from '@/components/pwa/serwist-init'
+import { BRAND } from '@/lib/constants/brand'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -14,11 +16,29 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(BRAND.url),
   title: {
     default: 'Lawket',
     template: '%s | Lawket',
   },
-  description: 'Your Pocket Counsel',
+  description: BRAND.description,
+  keywords: [
+    'legal case management',
+    'lawyer app',
+    'advocate software',
+    'case management software',
+    'AI legal assistant',
+    'court hearing reminders',
+    'law firm software',
+    'legal tech Pakistan',
+    'lawyer productivity',
+    'case tracking',
+  ],
+  authors: [{ name: 'Lawket', url: BRAND.url }],
+  creator: 'Lawket',
+  publisher: 'Lawket',
+  category: 'Legal Technology',
+  classification: 'Business/Legal',
   verification: {
     google: 'vF0erKnA4bZrZ4X0hhi8rAVeBMduJ-4e3tLbii9n80g',
   },
@@ -66,29 +86,24 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    siteName: 'Lawket',
-    title: "Lawket — Lawyer's Pocket Buddy",
-    description:
-      'AI-powered case management for lawyers. Every case gets its own AI assistant. Works offline.',
+    siteName: BRAND.name,
+    title: `${BRAND.name} - ${BRAND.tagline}`,
+    description: BRAND.description,
     locale: 'en_US',
-    url: 'https://lawket.vercel.app',
-    images: [
-      {
-        url: 'https://lawket.vercel.app/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: "Lawket — Lawyer's Pocket Buddy",
-      },
-    ],
+    url: BRAND.url,
+    // og:image is handled automatically by src/app/opengraph-image.tsx
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Lawket — Lawyer's Pocket Buddy",
-    description:
-      'AI-powered case management for lawyers. Every case gets its own AI assistant. Works offline.',
-    images: ['https://lawket.vercel.app/og-image.png'],
+    site: BRAND.twitter,
+    creator: BRAND.twitter,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: BRAND.description,
+    // twitter:image is resolved from opengraph-image.tsx
   },
-  metadataBase: new URL('https://lawket.vercel.app'),
+  alternates: {
+    canonical: BRAND.url,
+  },
   formatDetection: {
     telephone: false,
     email: false,
@@ -118,6 +133,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
+        <SerwistInit />
         {process.env.NEXT_PUBLIC_APP_ENV === 'production' && process.env.NEXT_PUBLIC_GA_ID && (
           <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
         )}
