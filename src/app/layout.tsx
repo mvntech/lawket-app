@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { GoogleAnalytics } from '@next/third-parties/google'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import { Providers } from './providers'
 
@@ -16,6 +19,12 @@ export const metadata: Metadata = {
     template: '%s | Lawket',
   },
   description: 'Your Pocket Counsel',
+  verification: {
+    google: 'googlec43cf80c5b562319',
+    other: {
+      'msvalidate.01': 'vF0erKnA4bZrZ4X0hhi8rAVeBMduJ-4e3tLbii9n80g',
+    },
+  },
   applicationName: 'Lawket',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -61,15 +70,28 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'Lawket',
-    title: 'Lawket - Your Pocket Counsel',
-    description: 'Legal case management for solo lawyers and law firms.',
+    title: "Lawket — Lawyer's Pocket Buddy",
+    description:
+      'AI-powered case management for lawyers. Every case gets its own AI assistant. Works offline.',
     locale: 'en_US',
+    url: 'https://lawket.vercel.app',
+    images: [
+      {
+        url: 'https://lawket.vercel.app/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: "Lawket — Lawyer's Pocket Buddy",
+      },
+    ],
   },
   twitter: {
-    card: 'summary',
-    title: 'Lawket',
-    description: 'Legal case management for solo lawyers and law firms.',
+    card: 'summary_large_image',
+    title: "Lawket — Lawyer's Pocket Buddy",
+    description:
+      'AI-powered case management for lawyers. Every case gets its own AI assistant. Works offline.',
+    images: ['https://lawket.vercel.app/og-image.png'],
   },
+  metadataBase: new URL('https://lawket.vercel.app'),
   formatDetection: {
     telephone: false,
     email: false,
@@ -80,12 +102,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f59e0b' },
-    { media: '(prefers-color-scheme: dark)', color: '#d97706' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
   ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
   viewportFit: 'cover',
 }
 
@@ -95,9 +116,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://apdaxmdurvmdzyweoyvr.supabase.co" />
+        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
+        {process.env.NEXT_PUBLIC_APP_ENV === 'production' && process.env.NEXT_PUBLIC_GA_ID && (
+          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+        )}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
