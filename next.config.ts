@@ -25,6 +25,14 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
   },
   typedRoutes: true,
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'framer-motion',
+      'date-fns',
+      '@radix-ui/react-icons',
+    ],
+  },
   async rewrites() {
     return [
       {
@@ -35,6 +43,24 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: '/icons/(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/fonts/(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/og-image.png',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400' },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [
@@ -50,14 +76,18 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com blob:",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://www.googletagmanager.com blob:",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.supabase.co https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://*.facebook.com https://*.fbcdn.net",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://*.sentry.io https://api.lemonsqueezy.com https://*.facebook.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://*.facebook.com https://*.fbcdn.net https://www.googletagmanager.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.posthog.com https://us.i.posthog.com https://us-assets.i.posthog.com https://*.sentry.io https://api.lemonsqueezy.com https://*.facebook.com https://www.googletagmanager.com",
               "font-src 'self' data:",
-              "frame-src 'self' https://*.supabase.co",
-              "object-src 'self' https://*.supabase.co",
+              "frame-src https://app.lemonsqueezy.com",
+              "media-src 'self' blob: https://*.supabase.co",
               "worker-src 'self' blob:",
+              "manifest-src 'self'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "upgrade-insecure-requests",
             ].join('; '),
           },
         ],
