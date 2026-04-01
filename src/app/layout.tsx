@@ -20,10 +20,7 @@ export const metadata: Metadata = {
   },
   description: 'Your Pocket Counsel',
   verification: {
-    google: 'googlec43cf80c5b562319',
-    other: {
-      'msvalidate.01': 'vF0erKnA4bZrZ4X0hhi8rAVeBMduJ-4e3tLbii9n80g',
-    },
+    google: 'vF0erKnA4bZrZ4X0hhi8rAVeBMduJ-4e3tLbii9n80g',
   },
   applicationName: 'Lawket',
   manifest: '/manifest.json',
