@@ -2,7 +2,7 @@
   "id": "/?source=pwa",
   "name": "Lawket",
   "short_name": "Lawket",
-  "description": "Your Pocket Counsel",
+  "description": "Lawyer's Pocket Buddy",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
@@ -38,13 +38,13 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshots/dashboard-mobile.png",
+      "src": "/screenshots/dashboard.png",
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow"
     },
     {
-      "src": "/screenshots/dashboard-desktop.png",
+      "src": "/screenshots/cases.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
