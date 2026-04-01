@@ -1,5 +1,7 @@
 export const APP_NAME = 'Lawket'
-export const APP_TAGLINE = 'Your Pocket Counsel'
+export const APP_TAGLINE = "Lawyer's Pocket Buddy"
+export const APP_URL = 'https://lawket.vercel.app'
+export const APP_EMAIL = 'info,lawket.app@gmail.com'
 
 // pagination
 export const DEFAULT_PAGE_SIZE = 20
@@ -24,11 +26,15 @@ export const STORAGE_BUCKET = 'lawket-documents'
 export const DEFAULT_TIMEZONE = 'Asia/Karachi'
 
 // file upload limits
-export const MAX_FILE_SIZE_BYTES = 52_428_800 // 50 MB
+export const MAX_FILE_SIZE_BYTES = 52_428_800   // 50 MB — documents, images
+export const MAX_VIDEO_SIZE_BYTES = 524_288_000  // 500 MB — video files
 export const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/heic',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
 ] as const
